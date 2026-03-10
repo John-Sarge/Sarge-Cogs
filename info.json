@@ -1,0 +1,6 @@
+{
+    "author": ["John_Sarge"],
+    "description": "John_Sarge's collection of cogs.",
+    "install_msg": "Thanks for adding Sarge's Cogs! You can install them using `[p]cog install sarge-cogs <cog_name>`.",
+    "short": "Sarge's Cogs"
+}
