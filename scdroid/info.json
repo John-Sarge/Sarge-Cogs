@@ -5,5 +5,5 @@
     "short": "Star Citizen utility cog.",
     "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
     "install_msg": "Thanks for installing SCDroid! Use `[p]help SCDroid` to see available commands.",
-    "requirements": ["beautifulsoup4", "aiohttp", "discord.py", "discord-ext-tasks"]
+    "requirements": ["beautifulsoup4", "aiohttp", "discord.py"]
 }

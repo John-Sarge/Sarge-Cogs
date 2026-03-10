@@ -33,7 +33,7 @@ To add this repository to your Redbot and install these cogs, run the following 
 
 ## Requirements
 - **Red-DiscordBot V3**
-- `SCDroid` requires `beautifulsoup4`, `aiohttp`, `discord.py`, and `discord-ext-tasks`.
+- `SCDroid` requires `beautifulsoup4`, `aiohttp`, and `discord.py`.
 - `BotRelay` requires `discord.py>=2.0.0` and `manage_guild` / `manage_messages` permissions depending on your setup.
 
 ## Support
