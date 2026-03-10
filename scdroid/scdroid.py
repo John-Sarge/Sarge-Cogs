@@ -1647,15 +1647,21 @@ class SCDroid(commands.Cog):
                     await msg.delete(delay=60)
                 else:
                     class PaginationView(discord.ui.View):
-                        def __init__(self, items):
+                        def __init__(self, items, ctx=None):
                             super().__init__(timeout=60)
                             self.items = items
+                            self.ctx = ctx
                             self.current_page = 0
                             self._update_buttons()
 
                         async def on_timeout(self):
                             try:
                                 if hasattr(self, 'message') and self.message:
+                                    if hasattr(self, 'ctx') and self.ctx:
+                                        try:
+                                            await self.ctx.message.delete()
+                                        except Exception:
+                                            pass
                                     await self.message.delete()
                             except:
                                 pass
@@ -1677,7 +1683,7 @@ class SCDroid(commands.Cog):
                             self._update_buttons()
                             await interaction.response.edit_message(embed=self.items[self.current_page], view=self)
                     
-                    view = PaginationView(embeds)
+                    view = PaginationView(embeds, ctx=ctx)
                     msg = await ctx.send(embed=embeds[0], view=view)
                     view.message = msg
 
@@ -1714,6 +1720,11 @@ class FuzzySelectView(discord.ui.View):
     async def on_timeout(self):
         try:
             if hasattr(self, 'message') and self.message:
+                if hasattr(self, 'ctx') and self.ctx:
+                    try:
+                        await self.ctx.message.delete()
+                    except Exception:
+                        pass
                 await self.message.delete()
         except:
             pass
