@@ -12,10 +12,11 @@ from redbot.core import commands, Config
 from discord.ext import tasks
 
 class FleetPaginationView(discord.ui.View):
-    def __init__(self, pages, author, timeout=60):
+    def __init__(self, pages, author, ctx=None, timeout=60):
         super().__init__(timeout=timeout)
         self.pages = pages
         self.author = author
+        self.ctx = ctx
         self.current_page = 0
         
         self.children[0].disabled = True
@@ -46,16 +47,22 @@ class FleetPaginationView(discord.ui.View):
     async def on_timeout(self):
         try:
             if hasattr(self, 'message') and self.message:
+                if hasattr(self, 'ctx') and self.ctx:
+                    try:
+                        await self.ctx.message.delete()
+                    except Exception:
+                        pass
                 await self.message.delete()
-        except Exception:
+        except:
             pass
 
 class WikiSelectView(discord.ui.View):
     """Dropdown menu view for selecting a Wiki page result."""
-    def __init__(self, results, author, timeout=60):
+    def __init__(self, results, author, ctx=None, timeout=60):
         super().__init__(timeout=timeout)
         self.results = results
         self.author = author
+        self.ctx = ctx
         self.selected_title = None
         
         options = []
@@ -75,6 +82,11 @@ class WikiSelectView(discord.ui.View):
     async def on_timeout(self):
         try:
             if hasattr(self, 'message') and self.message:
+                if hasattr(self, 'ctx') and self.ctx:
+                    try:
+                        await self.ctx.message.delete()
+                    except Exception:
+                        pass
                 await self.message.delete()
         except:
             pass
@@ -96,15 +108,21 @@ class WikiSelectCallback(discord.ui.Select):
 
 class CommoditySelectView(discord.ui.View):
     """Selection view for Trade command."""
-    def __init__(self, options, author, timeout=60):
+    def __init__(self, options, author, ctx=None, timeout=60):
         super().__init__(timeout=timeout)
         self.author = author
+        self.ctx = ctx
         self.selected_value = None
         self.add_item(CommoditySelectCallback(options))
 
     async def on_timeout(self):
         try:
             if hasattr(self, 'message') and self.message:
+                if hasattr(self, 'ctx') and self.ctx:
+                    try:
+                        await self.ctx.message.delete()
+                    except Exception:
+                        pass
                 await self.message.delete()
         except:
             pass
@@ -126,10 +144,11 @@ class CommoditySelectCallback(discord.ui.Select):
 
 class ShipSelectView(discord.ui.View):
     """Dropdown menu view for selecting a ship from search results."""
-    def __init__(self, ships, author, timeout=60):
+    def __init__(self, ships, author, ctx=None, timeout=60):
         super().__init__(timeout=timeout)
         self.ships = ships
         self.author = author
+        self.ctx = ctx
         self.selected_ship = None
         
         options = []
@@ -144,6 +163,11 @@ class ShipSelectView(discord.ui.View):
     async def on_timeout(self):
         try:
             if hasattr(self, 'message') and self.message:
+                if hasattr(self, 'ctx') and self.ctx:
+                    try:
+                        await self.ctx.message.delete()
+                    except Exception:
+                        pass
                 await self.message.delete()
         except:
             pass
@@ -757,11 +781,11 @@ class SCDroid(commands.Cog):
             pages.append(embed)
 
         if len(pages) > 0:
-            view = FleetPaginationView(pages, ctx.author, timeout=60)
-            msg = await ctx.send(embed=pages[0], view=view)
-            view.message = msg
+            view = FleetPaginationView(pages, ctx.author, ctx=ctx, timeout=60)
+            message = await ctx.send(embed=pages[0], view=view)
+            view.message = message
         else:
-             await ctx.send("No ships found.")
+             await ctx.send("Your fleet is currently empty. Use `[p]fleet add` to add ships!")
     
     @sc_base.command(name="find")
     async def sc_find(self, ctx, *, query: str):
@@ -831,7 +855,7 @@ class SCDroid(commands.Cog):
         selected_ship = None
         
         if len(matches) > 1:
-            view = ShipSelectView(matches, ctx.author)
+            view = ShipSelectView(matches, ctx.author, ctx=ctx)
             msg = await ctx.send("Multiple ships found. Please select one:", view=view)
             view.message = msg
             
@@ -965,7 +989,7 @@ class SCDroid(commands.Cog):
         selected_ship = None
         
         if len(matches) > 1:
-            view = ShipSelectView(matches, ctx.author)
+            view = ShipSelectView(matches, ctx.author, ctx=ctx)
             msg = await ctx.send("Multiple ships found. Please select one:", view=view)
             view.message = msg
             
@@ -1152,7 +1176,7 @@ class SCDroid(commands.Cog):
             matches.sort(key=lambda x: (x.get("name", "").lower() != query.lower(), len(x.get("name", ""))))
             
             if len(matches) > 1:
-                view = ShipSelectView(matches, ctx.author)
+                view = ShipSelectView(matches, ctx.author, ctx=ctx)
                 msg = await ctx.send(f"Multiple ships found for '**{query}**'. Please select one:", view=view)
                 view.message = msg
                 
@@ -1281,7 +1305,7 @@ class SCDroid(commands.Cog):
                     
                     is_exact_match = title.lower() == query.lower()
                     if not is_exact_match and len(results) > 1:
-                        view = WikiSelectView(results[:10], ctx.author)
+                        view = WikiSelectView(results[:10], ctx.author, ctx=ctx)
                         
                         prompt_bed = discord.Embed(
                             title=f"Multiple results found for '{query}'",
@@ -1393,7 +1417,7 @@ class SCDroid(commands.Cog):
                             desc = f"Type: {m.get('kind', 'Unknown')}"
                             options.append(discord.SelectOption(label=label, value=val, description=desc))
                             
-                        view = CommoditySelectView(options, ctx.author)
+                        view = CommoditySelectView(options, ctx.author, ctx=ctx)
                         
                         prompt = discord.Embed(
                             title=f"Multiple commodities found for '{commodity}'",
