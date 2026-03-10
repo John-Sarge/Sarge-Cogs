@@ -373,7 +373,14 @@ class SCDroid(commands.Cog):
                     if not buys:
                         result_lines.append("- No active buy locations")
                     for b in buys[:3]:
-                        loc = b.get('terminal', {}).get('name', 'Unknown')
+                        # Handle the case where the API dict structure differs from expected
+                        terminal = b.get('terminal', {})
+                        loc = terminal.get('name', 'Unknown')
+                        if loc == 'Unknown' and isinstance(terminal, str): # API might return terminal as a string
+                             loc = terminal
+                        elif loc == 'Unknown':
+                             # Try getting it from the parent object if terminal dict is missing/empty
+                             loc = b.get('terminal_name', b.get('location_name', 'Unknown'))
                         price = b.get('price_buy', 0)
                         result_lines.append(f"- {loc}: {price} aUEC")
                         
@@ -381,7 +388,12 @@ class SCDroid(commands.Cog):
                     if not sells:
                         result_lines.append("- No active sell locations")
                     for s in sells[:3]:
-                        loc = s.get('terminal', {}).get('name', 'Unknown')
+                        terminal = s.get('terminal', {})
+                        loc = terminal.get('name', 'Unknown')
+                        if loc == 'Unknown' and isinstance(terminal, str):
+                             loc = terminal
+                        elif loc == 'Unknown':
+                             loc = s.get('terminal_name', s.get('location_name', 'Unknown'))
                         price = s.get('price_sell', 0)
                         result_lines.append(f"- {loc}: {price} aUEC")
                         
