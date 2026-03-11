@@ -1416,6 +1416,10 @@ class SCDroid(commands.Cog):
                             
                             msg = await ctx.send(embed=embed)
                             await msg.delete(delay=300)
+                            try:
+                                await ctx.message.delete(delay=300)
+                            except:
+                                pass
                         else:
                             msg = await ctx.send(f"Found result **{title}**, but could not fetch details.")
                             await msg.delete(delay=300)
