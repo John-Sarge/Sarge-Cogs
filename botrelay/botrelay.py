@@ -200,12 +200,26 @@ class BotRelay(commands.Cog):
                 files_to_send.append(discord.File(fp=new_bio, filename=fname))
 
             try:
-                await dest_channel.send(
-                    content=final_content,
-                    embeds=embeds_to_send,
-                    files=files_to_send,
-                    allowed_mentions=discord.AllowedMentions.none() 
-                )
+                pages = list(pagify(final_content))
+                if not pages:
+                    # Message has no content (only embeds/attachments)
+                    await dest_channel.send(
+                        embeds=embeds_to_send,
+                        files=files_to_send,
+                        allowed_mentions=discord.AllowedMentions.none() 
+                    )
+                else:
+                    for i, page in enumerate(pages):
+                        # Only send embeds and files on the last page
+                        current_embeds = embeds_to_send if i == len(pages) - 1 else []
+                        current_files = files_to_send if i == len(pages) - 1 else []
+                        
+                        await dest_channel.send(
+                            content=page,
+                            embeds=current_embeds,
+                            files=current_files,
+                            allowed_mentions=discord.AllowedMentions.none() 
+                        )
             except Exception as e:
                 logger.error(f"Failed to relay to {dest_channel.id}: {e}")
         
