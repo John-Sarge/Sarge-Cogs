@@ -686,6 +686,10 @@ class SCDroid(commands.Cog):
                             
                             msg = await ctx.send(embed=embed)
                             await msg.delete(delay=300)
+                            try:
+                                await ctx.message.delete(delay=300)
+                            except:
+                                pass
                         else:
                             msg = await ctx.send("User not found or API returned an error.")
                             await msg.delete(delay=300)
@@ -750,6 +754,10 @@ class SCDroid(commands.Cog):
         embed.set_footer(text=f"Use `{ctx.clean_prefix}sc myfleet list` to see individual ships.")
         msg = await ctx.send(embed=embed)
         await msg.delete(delay=300)
+        try:
+            await ctx.message.delete(delay=300)
+        except:
+            pass
 
     @sc_myfleet.command(name="list")
     async def sc_myfleet_list(self, ctx):
@@ -828,6 +836,10 @@ class SCDroid(commands.Cog):
             
         msg = await ctx.send(embed=embed)
         await msg.delete(delay=300)
+        try:
+            await ctx.message.delete(delay=300)
+        except:
+            pass
 
     @sc_base.command(name="ship")
     async def sc_ship(self, ctx, *, ship_name: str):
@@ -862,6 +874,10 @@ class SCDroid(commands.Cog):
             if await view.wait():
                 msg2 = await ctx.send("Selection timed out.")
                 await msg2.delete(delay=300)
+                try:
+                    await ctx.message.delete(delay=300)
+                except:
+                    pass
                 return
             
             selected_slug = view.selected_ship
@@ -876,6 +892,10 @@ class SCDroid(commands.Cog):
         if not selected_ship:
              msg = await ctx.send("Error retrieving ship details.")
              await msg.delete(delay=300)
+             try:
+                 await ctx.message.delete(delay=300)
+             except:
+                 pass
              return
 
         embed = discord.Embed(
@@ -913,6 +933,10 @@ class SCDroid(commands.Cog):
         
         msg = await ctx.send(embed=embed)
         await msg.delete(delay=300)
+        try:
+            await ctx.message.delete(delay=300)
+        except:
+            pass
 
     @sc_base.command(name="org")
     async def sc_org(self, ctx, symbol: str):
@@ -1100,10 +1124,18 @@ class SCDroid(commands.Cog):
                         
                     msg = await ctx.send(embed=embed)
                     await msg.delete(delay=300)
+                    try:
+                        await ctx.message.delete(delay=300)
+                    except:
+                        pass
 
             except Exception as e:
                 msg = await ctx.send(f"Failed to reach RSI Status Page: {e}")
                 await msg.delete(delay=300)
+                try:
+                    await ctx.message.delete(delay=300)
+                except:
+                    pass
 
     @sc_base.command(name="news")
     async def sc_news(self, ctx):
@@ -1137,9 +1169,17 @@ class SCDroid(commands.Cog):
                     
                     msg = await ctx.send(embed=embed)
                     await msg.delete(delay=300)
+                    try:
+                        await ctx.message.delete(delay=300)
+                    except:
+                        pass
             except Exception as e:
                 msg = await ctx.send(f"Error fetching news: {e}")
                 await msg.delete(delay=300)
+                try:
+                    await ctx.message.delete(delay=300)
+                except:
+                    pass
 
     @sc_base.command(name="reloadships")
     @commands.is_owner()
@@ -1267,6 +1307,10 @@ class SCDroid(commands.Cog):
         
         msg = await ctx.send(embed=embed)
         await msg.delete(delay=300)
+        try:
+            await ctx.message.delete(delay=300)
+        except:
+            pass
 
     @sc_base.command(name="galactapedia", aliases=["lore", "wiki"])
     async def sc_galactapedia(self, ctx, *, query: str):
@@ -1380,6 +1424,10 @@ class SCDroid(commands.Cog):
                 self.logger.error(f"Wiki search error: {e}")
                 msg = await ctx.send(f"An error occurred while searching: {e}")
                 await msg.delete(delay=300)
+                try:
+                    await ctx.message.delete(delay=300)
+                except:
+                    pass
 
     @sc_base.command(name="trade")
     async def sc_trade(self, ctx, *, commodity: str):
@@ -1495,6 +1543,10 @@ class SCDroid(commands.Cog):
                 self.logger.error(f"Trade command error: {e}")
                 msg = await ctx.send(f"An error occurred looking up trade info: {e}")
                 await msg.delete(delay=300)
+                try:
+                    await ctx.message.delete(delay=300)
+                except:
+                    pass
 
     @sc_base.command(name="item", aliases=["cstone"])
     async def sc_item(self, ctx, *, item_name: str):
@@ -1645,6 +1697,10 @@ class SCDroid(commands.Cog):
                 if len(embeds) == 1:
                     msg = await ctx.send(embed=embeds[0])
                     await msg.delete(delay=300)
+                    try:
+                        await ctx.message.delete(delay=300)
+                    except:
+                        pass
                 else:
                     class PaginationView(discord.ui.View):
                         def __init__(self, items, ctx=None):
