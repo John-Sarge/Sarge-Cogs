@@ -1,5 +1,6 @@
 import discord
 import typing 
+import asyncio
 from redbot.core import Config, commands
 from redbot.core.utils.chat_formatting import pagify
 import logging
@@ -22,6 +23,7 @@ class BotRelay(commands.Cog):
             # "source_channel_id": [dest_id_1, dest_id_2]
         }
         self.config.register_global(**default_global)
+        self._locks = {}
 
     @commands.group(name="botrelay", aliases=["br"])
     @commands.guild_only()
@@ -148,80 +150,84 @@ class BotRelay(commands.Cog):
         if not dest_ids:
             return
 
-        final_content = message.content or ""
-        
-        # Handle reply
-        if message.reference and isinstance(message.reference.resolved, discord.Message):
-            ref_msg = message.reference.resolved
-            # Truncate reply snippet
-            ref_snippet = ref_msg.content or (ref_msg.embeds and "[Embed]") or "[Attachment]" or "[Unknown]"
-            if len(ref_snippet) > 50:
-                ref_snippet = ref_snippet[:50] + "..."
-            
-            # Add reply block quote
-            reply_header = f"> *Replying to {ref_msg.author.display_name}: {ref_snippet}*"
-            final_content = f"{reply_header}\n{final_content}"
-        
-        # Embeds
-        embeds_to_send = [e for e in message.embeds if e.type in ('rich', 'image', 'video', 'article')]
+        if src_id not in self._locks:
+            self._locks[src_id] = asyncio.Lock()
 
-        # Attachments
-        files_data = [] # List of (filename, BytesIO)
-        # Download attachments
-        for att in message.attachments:
-            if att.size > 8388608: # 8MB generic limit
-                final_content += f"\n[Attachment too large: {att.url}]"
-                continue
+        async with self._locks[src_id]:
+            final_content = message.content or ""
             
-            try:
-                data = await att.read()
-                files_data.append((att.filename, io.BytesIO(data)))
-            except Exception as e:
-                logger.error(f"Failed to download: {e}")
-                final_content += f"\n[Failed to download: {att.url}]"
+            # Handle reply
+            if message.reference and isinstance(message.reference.resolved, discord.Message):
+                ref_msg = message.reference.resolved
+                # Truncate reply snippet
+                ref_snippet = ref_msg.content or (ref_msg.embeds and "[Embed]") or "[Attachment]" or "[Unknown]"
+                if len(ref_snippet) > 50:
+                    ref_snippet = ref_snippet[:50] + "..."
+                
+                # Add reply block quote
+                reply_header = f"> *Replying to {ref_msg.author.display_name}: {ref_snippet}*"
+                final_content = f"{reply_header}\n{final_content}"
+            
+            # Embeds
+            embeds_to_send = [e for e in message.embeds if e.type in ('rich', 'image', 'video', 'article')]
 
-        for dest_id in dest_ids:
-            dest_channel = self.bot.get_channel(dest_id)
-            if not dest_channel:
-                continue
-            
-            # Permissions check
-            try:
-                if not dest_channel.permissions_for(dest_channel.guild.me).send_messages:
+            # Attachments
+            files_data = [] # List of (filename, BytesIO)
+            # Download attachments
+            for att in message.attachments:
+                if att.size > 8388608: # 8MB generic limit
+                    final_content += f"\n[Attachment too large: {att.url}]"
+                    continue
+                
+                try:
+                    data = await att.read()
+                    files_data.append((att.filename, io.BytesIO(data)))
+                except Exception as e:
+                    logger.error(f"Failed to download: {e}")
+                    final_content += f"\n[Failed to download: {att.url}]"
+
+            for dest_id in dest_ids:
+                dest_channel = self.bot.get_channel(dest_id)
+                if not dest_channel:
+                    continue
+                
+                # Permissions check
+                try:
+                    if not dest_channel.permissions_for(dest_channel.guild.me).send_messages:
+                         continue
+                except AttributeError:
                      continue
-            except AttributeError:
-                 continue
 
-            # File Management for this specific send
-            files_to_send = []
-            for fname, fbio in files_data:
-                # We copy the buffer because discord.File closes it
-                new_bio = io.BytesIO(fbio.getvalue())
-                files_to_send.append(discord.File(fp=new_bio, filename=fname))
+                # File Management for this specific send
+                files_to_send = []
+                for fname, fbio in files_data:
+                    # We copy the buffer because discord.File closes it
+                    new_bio = io.BytesIO(fbio.getvalue())
+                    files_to_send.append(discord.File(fp=new_bio, filename=fname))
 
-            try:
-                pages = list(pagify(final_content))
-                if not pages:
-                    # Message has no content (only embeds/attachments)
-                    await dest_channel.send(
-                        embeds=embeds_to_send,
-                        files=files_to_send,
-                        allowed_mentions=discord.AllowedMentions.none() 
-                    )
-                else:
-                    for i, page in enumerate(pages):
-                        # Only send embeds and files on the last page
-                        current_embeds = embeds_to_send if i == len(pages) - 1 else []
-                        current_files = files_to_send if i == len(pages) - 1 else []
-                        
+                try:
+                    pages = list(pagify(final_content))
+                    if not pages:
+                        # Message has no content (only embeds/attachments)
                         await dest_channel.send(
-                            content=page,
-                            embeds=current_embeds,
-                            files=current_files,
+                            embeds=embeds_to_send,
+                            files=files_to_send,
                             allowed_mentions=discord.AllowedMentions.none() 
                         )
-            except Exception as e:
-                logger.error(f"Failed to relay to {dest_channel.id}: {e}")
+                    else:
+                        for i, page in enumerate(pages):
+                            # Only send embeds and files on the last page
+                            current_embeds = embeds_to_send if i == len(pages) - 1 else []
+                            current_files = files_to_send if i == len(pages) - 1 else []
+                            
+                            await dest_channel.send(
+                                content=page,
+                                embeds=current_embeds,
+                                files=current_files,
+                                allowed_mentions=discord.AllowedMentions.none() 
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to relay to {dest_channel.id}: {e}")
         
         # Cleanup original memory
         for _, fbio in files_data:
