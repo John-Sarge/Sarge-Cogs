@@ -726,11 +726,26 @@ class SCDroid(commands.Cog):
                 count = len(fleet_data)
                 manufacturers = set(s.get("manufacturerCode", "Unknown") for s in fleet_data if isinstance(s, dict))
                 
-                await ctx.send(f"Successfully imported {count} ships from {len(manufacturers)} manufacturers into your personal database!")
+                msg = await ctx.send(f"Successfully imported {count} ships from {len(manufacturers)} manufacturers into your personal database!")
+                await msg.delete(delay=10)
+                try:
+                    await ctx.message.delete(delay=10)
+                except:
+                    pass
             else:
-                await ctx.send("Invalid JSON format. Expected a list structure.")
+                msg = await ctx.send("Invalid JSON format. Expected a list structure.")
+                await msg.delete(delay=10)
+                try:
+                    await ctx.message.delete(delay=10)
+                except:
+                    pass
         except json.JSONDecodeError:
-            await ctx.send("Failed to parse the JSON file. Ensure the file is not corrupted.")
+            msg = await ctx.send("Failed to parse the JSON file. Ensure the file is not corrupted.")
+            await msg.delete(delay=10)
+            try:
+                await ctx.message.delete(delay=10)
+            except:
+                pass
 
     @sc_base.group(name="myfleet", invoke_without_command=True)
     async def sc_myfleet(self, ctx):
@@ -758,9 +773,9 @@ class SCDroid(commands.Cog):
         
         embed.set_footer(text=f"Use `{ctx.clean_prefix}sc myfleet list` to see individual ships.")
         msg = await ctx.send(embed=embed)
-        await msg.delete(delay=300)
+        await msg.delete(delay=60)
         try:
-            await ctx.message.delete(delay=300)
+            await ctx.message.delete(delay=60)
         except:
             pass
 
@@ -1057,7 +1072,7 @@ class SCDroid(commands.Cog):
             
             if await view.wait():
                 msg2 = await ctx.send("Selection timed out.")
-                await msg2.delete(delay=300)
+                await msg2.delete(delay=60)
                 
             selected_slug = view.selected_ship
             selected_ship = next((s for s in self.ship_cache if s.get("slug") == selected_slug or s.get("name") == selected_slug), None)
@@ -1560,7 +1575,7 @@ class SCDroid(commands.Cog):
                 
                 if await view.wait():
                     msg2 = await ctx.send("Selection timed out.")
-                    await msg2.delete(delay=300)
+                    await msg2.delete(delay=60)
                     return None
                 
                 selected_slug = view.selected_ship
