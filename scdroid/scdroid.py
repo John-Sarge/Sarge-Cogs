@@ -1425,39 +1425,48 @@ class SCDroid(commands.Cog):
             # Sort primarily by Quality (descending), then Max Quantity (descending)
             locs_mapped.sort(key=lambda x: (x["q"], x["max"]), reverse=True)
 
-            embed = __import__('discord').Embed(
-                title=f"Mining: {name}",
-                color=__import__('discord').Color.orange(),
-                url="https://scmdb.net/?page=mine"
-            )
-            embed.set_author(name="SCMDB", url="https://scmdb.net/", icon_url="https://scmdb.net/favicon.svg")
+            pages = []
+            chunk_size = 10
             
-            embed.add_field(name="Rarity", value=rarity, inline=True)
-            embed.add_field(name="Instability", value=f"{instability:,.2f}", inline=True)
-            embed.add_field(name="Resistance", value=f"{resistance:,.2f}", inline=True)
-            embed.add_field(name="Opt Window", value=f"{opt_window:,.2f}", inline=True)
-            embed.add_field(name="Cluster Factor", value=f"{cluster:,.2f}", inline=True)
-            embed.add_field(name="Base Signature", value=f"{sig:,}", inline=True)
-            
-            if locs_mapped:
-                loc_strings = []
-                for mapping in locs_mapped:
-                    loc_strings.append(f"**{mapping['loc']}** (Q: {mapping['q']}, Qty: {mapping['min']:.2f}%-{mapping['max']:.2f}%)")
-
-                if len(loc_strings) > 10:
-                    chunks = loc_strings[:10]
-                    chunks.append(f"(+{len(loc_strings)-10} more)")
-                    final_str = "\n".join(chunks)
-                else:
-                    final_str = "\n".join(loc_strings)
-                
-                embed.add_field(name="Top Locations (Q >= 500)", value=final_str[:1024], inline=False)
+            if not locs_mapped:
+                chunks = [[]]
             else:
-                embed.add_field(name="Known Locations", value="No locations found with Quality >= 500.", inline=False)
+                chunks = [locs_mapped[i:i + chunk_size] for i in range(0, len(locs_mapped), chunk_size)]
+                
+            for i, chunk in enumerate(chunks):
+                embed = __import__('discord').Embed(
+                    title=f"Mining: {name}",
+                    color=__import__('discord').Color.orange(),
+                    url="https://scmdb.net/?page=mine"
+                )
+                embed.set_author(name="SCMDB", url="https://scmdb.net/", icon_url="https://scmdb.net/favicon.svg")
+                
+                embed.add_field(name="Rarity", value=rarity, inline=True)
+                embed.add_field(name="Instability", value=f"{instability:,.2f}", inline=True)
+                embed.add_field(name="Resistance", value=f"{resistance:,.2f}", inline=True)
+                embed.add_field(name="Opt Window", value=f"{opt_window:,.2f}", inline=True)
+                embed.add_field(name="Cluster Factor", value=f"{cluster:,.2f}", inline=True)
+                embed.add_field(name="Base Signature", value=f"{sig:,}", inline=True)
+                
+                if chunk:
+                    loc_strings = []
+                    for mapping in chunk:
+                        loc_strings.append(f"**{mapping['loc']}** (Q: {mapping['q']}, Qty: {mapping['min']:.2f}%-{mapping['max']:.2f}%)")
+                    
+                    final_str = "\n".join(loc_strings)
+                    embed.add_field(name=f"Top Locations ({i*chunk_size+1}-{i*chunk_size+len(chunk)} of {len(locs_mapped)})", value=final_str[:1024], inline=False)
+                else:
+                    embed.add_field(name="Known Locations", value="No locations found with Quality >= 500.", inline=False)
 
-            embed.set_footer(text="Data sourced from SCMDB.net")
+                embed.set_footer(text=f"Page {i+1} of {len(chunks)} | Data sourced from SCMDB.net")
+                pages.append(embed)
             
-            await ctx.send(embed=embed)
+            if len(pages) > 1:
+                view = FleetPaginationView(pages, ctx.author, ctx=ctx, timeout=60)
+                message = await ctx.send(embed=pages[0], view=view)
+                view.message = message
+            else:
+                await ctx.send(embed=pages[0])
 
     @sc_base.command(name="status")
     async def sc_status(self, ctx):
