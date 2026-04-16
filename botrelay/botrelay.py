@@ -140,20 +140,20 @@ class BotRelay(commands.Cog):
         if not message.guild:
             return
 
-        relays = await self.config.relays()
         src_id = str(message.channel.id)
-        
-        if src_id not in relays:
-            return
-
-        dest_ids = relays[src_id]
-        if not dest_ids:
-            return
-
         if src_id not in self._locks:
             self._locks[src_id] = asyncio.Lock()
 
         async with self._locks[src_id]:
+            relays = await self.config.relays()
+            
+            if src_id not in relays:
+                return
+
+            dest_ids = relays[src_id]
+            if not dest_ids:
+                return
+
             final_content = message.content or ""
             
             # Handle reply
