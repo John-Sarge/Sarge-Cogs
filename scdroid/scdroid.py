@@ -350,6 +350,90 @@ class SCDroid(commands.Cog):
         }
         await cog.register_function(self.qualified_name, schema_ship)
 
+        schema_user = {
+            "name": "sc_get_user_profile",
+            "description": "Look up a Star Citizen player's public profile by their RSI handle.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "handle": {
+                        "type": "string",
+                        "description": "The RSI handle (username) of the player to look up (e.g., 'SomePlayer123')."
+                    }
+                },
+                "required": ["handle"]
+            }
+        }
+        await cog.register_function(self.qualified_name, schema_user)
+
+        schema_org = {
+            "name": "sc_get_org_profile",
+            "description": "Look up a Star Citizen organization's profile by its SID symbol.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The organization SID/symbol to look up (e.g., 'TEST')."
+                    }
+                },
+                "required": ["symbol"]
+            }
+        }
+        await cog.register_function(self.qualified_name, schema_org)
+
+        schema_craft = {
+            "name": "sc_get_craft_blueprint",
+            "description": "Look up crafting blueprint requirements and materials for an item in Star Citizen.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item_name": {
+                        "type": "string",
+                        "description": "The name of the item to look up a crafting blueprint for (e.g., 'FS-9', 'Gallium')."
+                    }
+                },
+                "required": ["item_name"]
+            }
+        }
+        await cog.register_function(self.qualified_name, schema_craft)
+
+        schema_mine = {
+            "name": "sc_get_mining_info",
+            "description": "Look up mining locations and data for a minable element or mineral in Star Citizen.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "element": {
+                        "type": "string",
+                        "description": "The name of the minable element to look up (e.g., 'Quantainium', 'Bexalite')."
+                    }
+                },
+                "required": ["element"]
+            }
+        }
+        await cog.register_function(self.qualified_name, schema_mine)
+
+        schema_compare = {
+            "name": "sc_compare_ships",
+            "description": "Compare two Star Citizen ships side-by-side by their stats.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ship1": {
+                        "type": "string",
+                        "description": "The name of the first ship to compare (e.g., 'Avenger Titan')."
+                    },
+                    "ship2": {
+                        "type": "string",
+                        "description": "The name of the second ship to compare (e.g., 'Cutlass Black')."
+                    }
+                },
+                "required": ["ship1", "ship2"]
+            }
+        }
+        await cog.register_function(self.qualified_name, schema_compare)
+
     async def sc_get_trade_info(self, *args, **kwargs) -> str:
         """Looks up commodity trade information."""
         commodity = kwargs.get("commodity", "")
@@ -641,6 +725,243 @@ class SCDroid(commands.Cog):
         if selected_ship.get("afterburnerSpeed"): stats.append(f"Max Speed: {selected_ship['afterburnerSpeed']} m/s")
         
         return f"**Ship Data: {name}**\nManufacturer: {manuf}\nFocus: {focus}\nStatus: {status}\n\nStats:\n" + "\n".join(stats)
+
+    async def sc_get_user_profile(self, *args, **kwargs) -> str:
+        """Looks up a Star Citizen player profile by RSI handle."""
+        handle = kwargs.get("handle", "")
+        if not handle:
+            return "Error: Player handle not provided."
+
+        api_key = await self.config.sc_api_key()
+        if not api_key:
+            return "Error: The SC API key has not been configured."
+
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/user/{handle}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        return f"Could not reach SC API (HTTP {response.status})."
+                    data = await response.json()
+                    if data.get("success") != 1:
+                        return f"Player '{handle}' not found."
+                    profile = data["data"]["profile"]
+                    org = data["data"].get("organization", {})
+                    result = (
+                        f"**{profile.get('display', handle)}** (@{profile.get('handle', handle)})\n"
+                        f"Enlisted: {profile.get('enlisted', 'N/A')[:10]}\n"
+                    )
+                    if org:
+                        result += f"Organization: {org.get('name')} [{org.get('sid')}]"
+                    return result
+        except Exception as e:
+            return f"Error fetching player profile: {e}"
+
+    async def sc_get_org_profile(self, *args, **kwargs) -> str:
+        """Looks up a Star Citizen organization profile by SID."""
+        symbol = kwargs.get("symbol", "")
+        if not symbol:
+            return "Error: Organization symbol not provided."
+
+        api_key = await self.config.sc_api_key()
+        if not api_key:
+            return "Error: The SC API key has not been configured."
+
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/organization/{symbol}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        return f"Could not reach SC API (HTTP {response.status})."
+                    data = await response.json()
+                    if data.get("success") != 1:
+                        return f"Organization '{symbol}' not found."
+                    org = data["data"]
+                    headline = org.get("headline", "")
+                    headline_text = str(headline).strip() if not isinstance(headline, dict) else headline.get("plaintext", "").strip()
+                    focus = [org.get("primaryActivity"), org.get("secondaryActivity")]
+                    focus = [f for f in focus if f]
+                    return (
+                        f"**{org.get('name')} [{org.get('sid')}]**\n"
+                        f"Archetype: {org.get('archetype', 'N/A')} | Members: {org.get('members', 'N/A')} | Language: {org.get('lang', 'N/A')}\n"
+                        + (f"Focus: {', '.join(focus)}\n" if focus else "")
+                        + (f"Description: {headline_text}" if headline_text else "")
+                    )
+        except Exception as e:
+            return f"Error fetching org profile: {e}"
+
+    async def sc_get_craft_blueprint(self, *args, **kwargs) -> str:
+        """Looks up crafting blueprint info from SCCrafter."""
+        item_name = kwargs.get("item_name", "")
+        if not item_name:
+            return "Error: Item name not provided."
+
+        import time as _time
+        current_time = _time.time()
+        if not self.craft_cache or (current_time - self.craft_cache_time > self.cache_duration):
+            url = "https://sccrafter.com/Blueprints.json"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            self.craft_cache = data.get('blueprints', [])
+                            self.craft_cache_time = current_time
+                        else:
+                            return f"Failed to fetch blueprints (HTTP {resp.status})."
+            except Exception as e:
+                return f"Error reaching SCCrafter API: {e}"
+
+        query = item_name.lower()
+        matches = [bp for bp in self.craft_cache if query in bp.get("blueprintName", "").lower() or query in bp.get("internalName", "").lower()]
+        if not matches:
+            return f"No crafting blueprint found for '{item_name}'."
+
+        matches.sort(key=lambda x: len(x.get("blueprintName", "")))
+        bp = matches[0]
+        name = bp.get("blueprintName", "Unknown")
+        cat = bp.get("categoryName", "N/A")
+        ct = bp.get("craftTime", {})
+        time_str = f"{ct.get('days',0)}d {ct.get('hours',0)}h {ct.get('minutes',0)}m {ct.get('seconds',0)}s"
+
+        slots = bp.get("slots", [])
+        req_lines = []
+        for slot in slots:
+            count = slot.get("requiredCount", 1)
+            for opt in slot.get("options", []):
+                if opt.get("type") == "resource":
+                    res = opt.get("resourceName", "Unknown Resource")
+                    scu = opt.get("standardCargoUnits", 0) * count
+                    req_lines.append(f"- {count}x {res} ({scu:.2f} SCU)")
+                elif opt.get("type") == "item":
+                    res = opt.get("entityName", "Unknown Item")
+                    req_lines.append(f"- {count}x {res}")
+
+        result = f"**Crafting Blueprint: {name}**\nCategory: {cat} | Base Time: {time_str}\n"
+        if req_lines:
+            result += "\nMaterials Needed:\n" + "\n".join(req_lines)
+        else:
+            result += "\nNo known materials required."
+
+        if len(matches) > 1:
+            result += f"\n\n*(Found {len(matches)} matching blueprints. Showing closest match.)*"
+        return result
+
+    async def sc_get_mining_info(self, *args, **kwargs) -> str:
+        """Looks up mining element data from SCMDB."""
+        element = kwargs.get("element", "")
+        if not element:
+            return "Error: Element name not provided."
+
+        import time as _time
+        current_time = _time.time()
+        if not getattr(self, "mine_cache", None) or (current_time - getattr(self, "mine_cache_time", 0) > self.cache_duration):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("https://scmdb.net/data/game-versions.json") as resp:
+                        if resp.status != 200:
+                            return "Failed to fetch SCMDB version index."
+                        v_data = await resp.json()
+                        vers = v_data[0]['version']
+                    async with session.get(f"https://scmdb.net/data/mining_data-{vers}.json") as resp:
+                        if resp.status != 200:
+                            return "Failed to fetch SCMDB mining data."
+                        self.mine_cache = await resp.json()
+                        self.mine_cache_time = current_time
+            except Exception as e:
+                return f"Error reaching SCMDB: {e}"
+
+        data = self.mine_cache
+        elements = data.get("mineableElements", {})
+        query = element.lower()
+        matches = [(k, v) for k, v in elements.items() if query in v.get("name", "").lower()]
+        if not matches:
+            return f"No minable element found matching '{element}'."
+
+        matches.sort(key=lambda x: len(x[1].get("name", "")))
+        selected_guid, elem = matches[0]
+        name = elem.get("name", "Unknown")
+        rarity = elem.get("rarity", "Unknown").title()
+        instability = elem.get("instability", 0.0)
+        resistance = elem.get("resistance", 0.0)
+
+        comps_info = {}
+        for ck, cv in data.get("compositions", {}).items():
+            part = next((p for p in cv.get("parts", []) if p.get("elementGuid") == selected_guid), None)
+            if part:
+                comps_info[ck] = {"q": int(part.get("qualityScale", 0) * 1000), "min": part.get("minPercent", 0), "max": part.get("maxPercent", 0)}
+
+        locs = []
+        for loc in data.get("locations", []):
+            best_q = 0
+            best_min = best_max = 0
+            valid = False
+            for g in loc.get("groups", []):
+                for dep in g.get("deposits", []):
+                    cid = dep.get("compositionGuid")
+                    if cid in comps_info and comps_info[cid]["q"] > best_q:
+                        best_q = comps_info[cid]["q"]
+                        best_min = comps_info[cid]["min"]
+                        best_max = comps_info[cid]["max"]
+                        valid = True
+            if valid and best_q >= 500:
+                locs.append(f"- {loc.get('system','?')} / {loc.get('locationName','?')} (Q:{best_q}, {best_min:.1f}%-{best_max:.1f}%)")
+
+        locs.sort()
+        result = (
+            f"**Mining: {name}**\n"
+            f"Rarity: {rarity} | Instability: {instability:.2f} | Resistance: {resistance:.2f}\n\n"
+        )
+        if locs:
+            result += "Top Locations (Quality ≥ 500):\n" + "\n".join(locs[:10])
+            if len(locs) > 10:
+                result += f"\n*(+ {len(locs)-10} more locations)*"
+        else:
+            result += "No known high-quality locations found."
+        return result
+
+    async def sc_compare_ships(self, *args, **kwargs) -> str:
+        """Compares two ships side by side using cached ship data."""
+        ship1_name = kwargs.get("ship1", "")
+        ship2_name = kwargs.get("ship2", "")
+        if not ship1_name or not ship2_name:
+            return "Error: Two ship names are required."
+
+        if not self.ship_cache:
+            return "Ship cache is not yet loaded."
+
+        def find_ship(query):
+            params = query.lower().split()
+            matches = [s for s in self.ship_cache if all(w in (s.get("name") or "").lower() for w in params)]
+            if not matches:
+                return None
+            matches.sort(key=lambda x: (x.get("name", "").lower() != query.lower(), len(x.get("name", ""))))
+            return matches[0]
+
+        s1 = find_ship(ship1_name)
+        s2 = find_ship(ship2_name)
+
+        if not s1:
+            return f"Could not find a ship matching '{ship1_name}'."
+        if not s2:
+            return f"Could not find a ship matching '{ship2_name}'."
+
+        def stat(ship, key, suffix=""):
+            val = ship.get(key)
+            return f"{val}{suffix}" if val is not None else "N/A"
+
+        lines = [
+            f"**{s1.get('name')} vs {s2.get('name')}**",
+            f"{'Stat':<20} {'Ship 1':<20} {'Ship 2'}",
+            f"{'Manufacturer':<20} {(s1.get('manufacturer',{}).get('name','?')):<20} {s2.get('manufacturer',{}).get('name','?')}",
+            f"{'Price':<20} {stat(s1,'price',' UEC'):<20} {stat(s2,'price',' UEC')}",
+            f"{'Max Crew':<20} {stat(s1,'maxCrew'):<20} {stat(s2,'maxCrew')}",
+            f"{'Cargo':<20} {stat(s1,'cargo',' SCU'):<20} {stat(s2,'cargo',' SCU')}",
+            f"{'SCM Speed':<20} {stat(s1,'scmSpeed',' m/s'):<20} {stat(s2,'scmSpeed',' m/s')}",
+            f"{'Max Speed':<20} {stat(s1,'afterburnerSpeed',' m/s'):<20} {stat(s2,'afterburnerSpeed',' m/s')}",
+            f"{'Status':<20} {s1.get('productionStatus','?').title():<20} {s2.get('productionStatus','?').title()}",
+        ]
+        return "\n".join(lines)
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
