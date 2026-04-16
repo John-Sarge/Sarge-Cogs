@@ -1205,7 +1205,6 @@ class SCDroid(commands.Cog):
         if len(matches) > 1:
             view = ShipSelectView(matches, ctx.author)
             msg = await ctx.send("Multiple ships found. Please select one:", view=view)
-            view.message = msg
             
             if await view.wait():
                 await ctx.send("Selection timed out.")
@@ -1768,7 +1767,6 @@ class SCDroid(commands.Cog):
             if len(pages) > 1:
                 view = FleetPaginationView(pages, ctx.author, timeout=60)
                 message = await ctx.send(embed=pages[0], view=view)
-                view.message = message
             else:
                 await ctx.send(embed=pages[0])
 
@@ -1892,7 +1890,6 @@ class SCDroid(commands.Cog):
             if len(matches) > 1:
                 view = ShipSelectView(matches, ctx.author)
                 msg = await ctx.send(f"Multiple ships found for '**{query}**'. Please select one:", view=view)
-                view.message = msg
                 
                 if await view.wait():
                     await ctx.send("Selection timed out.")
@@ -2025,7 +2022,6 @@ class SCDroid(commands.Cog):
                             color=discord.Color.gold()
                         )
                         msg = await ctx.send(embed=prompt_bed, view=view)
-                        view.message = msg
                         
                         if await view.wait():
                             try:
@@ -2134,7 +2130,6 @@ class SCDroid(commands.Cog):
                             color=discord.Color.gold()
                         )
                         msg = await ctx.send(embed=prompt, view=view)
-                        view.message = msg
                         
                         if await view.wait():
                             try: await msg.delete() 
@@ -2249,7 +2244,6 @@ class SCDroid(commands.Cog):
             else:
                 view = FuzzySelectView(ctx, matches[:25], None, self.process_cstone_item)
                 msg = await ctx.send(f"Found multiple items for '{item_name}'. Please select one:", view=view)
-                view.message = msg
 
     async def process_cstone_item(self, ctx, item_id, item_name):
         """Scrapes the detail page for a specific item ID."""
@@ -2391,7 +2385,6 @@ class SCDroid(commands.Cog):
                     
                     view = PaginationView(embeds)
                     msg = await ctx.send(embed=embeds[0], view=view)
-                    view.message = msg
 
         except Exception as e:
             import traceback
