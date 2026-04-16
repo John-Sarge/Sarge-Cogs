@@ -718,7 +718,8 @@ class SCDroid(commands.Cog):
         status = selected_ship.get("productionStatus", "Unknown").title()
         
         stats = []
-        if selected_ship.get("price"): stats.append(f"Price: ${selected_ship['price']}")
+        if selected_ship.get("pledgePrice"): stats.append(f"Pledge Price: ${selected_ship['pledgePrice']}")
+        if selected_ship.get("price"): stats.append(f"In-Game Price: {selected_ship['price']} aUEC")
         if selected_ship.get("maxCrew"): stats.append(f"Max Crew: {selected_ship['maxCrew']}")
         if selected_ship.get("cargo"): stats.append(f"Cargo: {selected_ship['cargo']} SCU")
         if selected_ship.get("scmSpeed"): stats.append(f"SCM Speed: {selected_ship['scmSpeed']} m/s")
@@ -954,7 +955,8 @@ class SCDroid(commands.Cog):
             f"**{s1.get('name')} vs {s2.get('name')}**",
             f"{'Stat':<20} {'Ship 1':<20} {'Ship 2'}",
             f"{'Manufacturer':<20} {(s1.get('manufacturer',{}).get('name','?')):<20} {s2.get('manufacturer',{}).get('name','?')}",
-            f"{'Price':<20} ${s1.get('price') or 'N/A':<19} ${s2.get('price') or 'N/A'}",
+            f"{'Pledge Price':<20} ${s1.get('pledgePrice') or 'N/A':<19} ${s2.get('pledgePrice') or 'N/A'}",
+            f"{'In-Game Price':<20} {stat(s1,'price',' aUEC'):<20} {stat(s2,'price',' aUEC')}",
             f"{'Max Crew':<20} {stat(s1,'maxCrew'):<20} {stat(s2,'maxCrew')}",
             f"{'Cargo':<20} {stat(s1,'cargo',' SCU'):<20} {stat(s2,'cargo',' SCU')}",
             f"{'SCM Speed':<20} {stat(s1,'scmSpeed',' m/s'):<20} {stat(s2,'scmSpeed',' m/s')}",
@@ -1273,13 +1275,18 @@ class SCDroid(commands.Cog):
         stats = []
         
         # Helper to get nested safely
-        price = selected_ship.get("price") or selected_ship.get("pledgePrice")
-        if price:
+        pledge = selected_ship.get("pledgePrice")
+        ingame = selected_ship.get("price")
+        if pledge:
             try:
-                price_f = float(price)
-                stats.append(f"Price: ${price_f:,.0f}")
+                stats.append(f"Pledge Price: ${float(pledge):,.0f}")
             except:
-                stats.append(f"Price: ${price}")
+                stats.append(f"Pledge Price: ${pledge}")
+        if ingame:
+            try:
+                stats.append(f"In-Game Price: {float(ingame):,.0f} aUEC")
+            except:
+                stats.append(f"In-Game Price: {ingame} aUEC")
                 
         crew = selected_ship.get("crew", {})
         if crew and crew.get("max"):
@@ -1917,8 +1924,10 @@ class SCDroid(commands.Cog):
         )
         
         def get_ship_field(ship, field):
-            if field == "price":
-                return ship.get("price") or ship.get("pledgePrice")
+            if field == "pledgePrice":
+                return ship.get("pledgePrice")
+            elif field == "ingamePrice":
+                return ship.get("price")
             elif field == "scmSpeed":
                 speeds = ship.get("speeds") or {}
                 return speeds.get("scmSpeed") or ship.get("scmSpeed")
@@ -1990,7 +1999,8 @@ class SCDroid(commands.Cog):
         embed.add_field(name="Ship 2", value=ship2['name'], inline=True)
         embed.add_field(name="\u200b", value="\u200b", inline=True)
 
-        compare_val("price", "Price", prefix="$", reverse=True) # Lower price is better
+        compare_val("pledgePrice", "Pledge Price", prefix="$", reverse=True)
+        compare_val("ingamePrice", "In-Game Price", suffix=" aUEC", reverse=True)
         compare_val("scmSpeed", "SCM Speed", " m/s")
         compare_val("maxCrew", "Max Crew", reverse=True)
         compare_val("cargo", "Cargo", " SCU")
