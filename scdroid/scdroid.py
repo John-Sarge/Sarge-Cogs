@@ -1380,19 +1380,51 @@ class SCDroid(commands.Cog):
             sig = selected_elem.get("scanSignature", 0)
             
             # reverse compositions -> locations
-            comps = set()
+            # 1. Map composition guids to their highest specific element quality and quantity
+            comps_info = {}
             for ck, cv in data.get("compositions", {}).items():
-                if any(p.get("elementGuid") == selected_guid for p in cv.get("parts", [])):
-                    comps.add(ck)
-            
-            sys_locs = {}
+                match_part = next((p for p in cv.get("parts", []) if p.get("elementGuid") == selected_guid), None)
+                if match_part:
+                    q = int(match_part.get("qualityScale", 0) * 1000)
+                    min_q = match_part.get("minPercent", 0)
+                    max_q = match_part.get("maxPercent", 0)
+                    comps_info[ck] = {"q": q, "min": min_q * 100, "max": max_q * 100}
+
+            # 2. Map locations with best quality
+            # We want to keep sites with QUALITY >= 500
+            locs_mapped = []
             for loc in data.get("locations", []):
+                best_loc_q = 0
+                best_loc_min = 0
+                best_loc_max = 0
+                has_valid_dep = False
+                
                 for g in loc.get("groups", []):
                     for dep in g.get("deposits", []):
-                        if dep.get("compositionGuid") in comps:
-                            sys = loc.get("system", "Unknown")
-                            sys_locs.setdefault(sys, set()).add(loc.get("locationName", "Unknown"))
-                            
+                        cid = dep.get("compositionGuid")
+                        if cid in comps_info:
+                            cinfo = comps_info[cid]
+                            if cinfo["q"] > best_loc_q:
+                                best_loc_q = cinfo["q"]
+                                best_loc_min = cinfo["min"]
+                                best_loc_max = cinfo["max"]
+                            has_valid_dep = True
+                
+                if has_valid_dep and best_loc_q >= 500:
+                    sys_name = loc.get("system", "Unknown")
+                    loc_name = loc.get("locationName", "Unknown")
+                    sys_loc = f"{sys_name} / {loc_name}"
+                    locs_mapped.append({
+                        "sys": sys_name,
+                        "loc": sys_loc,
+                        "q": best_loc_q,
+                        "min": best_loc_min,
+                        "max": best_loc_max
+                    })
+
+            # Sort primarily by Quality (descending), then Max Quantity (descending)
+            locs_mapped.sort(key=lambda x: (x["q"], x["max"]), reverse=True)
+
             embed = __import__('discord').Embed(
                 title=f"Mining: {name}",
                 color=__import__('discord').Color.orange(),
@@ -1407,20 +1439,22 @@ class SCDroid(commands.Cog):
             embed.add_field(name="Cluster Factor", value=f"{cluster:,.2f}", inline=True)
             embed.add_field(name="Base Signature", value=f"{sig:,}", inline=True)
             
-            if sys_locs:
-                loc_str = ""
-                for s, l_set in sys_locs.items():
-                    sorted_locs = sorted(list(l_set))
-                    if len(sorted_locs) > 10:
-                        loc_chunk = ", ".join(sorted_locs[:10]) + f" (+{len(sorted_locs)-10} more)"
-                    else:
-                        loc_chunk = ", ".join( sorted_locs)
-                    loc_str += f"**{s}**: {loc_chunk}\n"
-                    
-                embed.add_field(name="Known Locations", value=loc_str[:1024], inline=False)
-            else:
-                embed.add_field(name="Known Locations", value="No location data mapped natively.", inline=False)
+            if locs_mapped:
+                loc_strings = []
+                for mapping in locs_mapped:
+                    loc_strings.append(f"**{mapping['loc']}** (Q: {mapping['q']}, Qty: {mapping['min']:.2f}%-{mapping['max']:.2f}%)")
+
+                if len(loc_strings) > 10:
+                    chunks = loc_strings[:10]
+                    chunks.append(f"(+{len(loc_strings)-10} more)")
+                    final_str = "\n".join(chunks)
+                else:
+                    final_str = "\n".join(loc_strings)
                 
+                embed.add_field(name="Top Locations (Q >= 500)", value=final_str[:1024], inline=False)
+            else:
+                embed.add_field(name="Known Locations", value="No locations found with Quality >= 500.", inline=False)
+
             embed.set_footer(text="Data sourced from SCMDB.net")
             
             await ctx.send(embed=embed)
