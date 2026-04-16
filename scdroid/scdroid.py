@@ -1278,6 +1278,153 @@ class SCDroid(commands.Cog):
             
             await ctx.send(embed=embed)
 
+
+    @sc_base.command(name="mine")
+    async def sc_mine(self, ctx, *, item_name: str):
+        """Search mining data and locations via SCMDB.
+        
+        Example: [p]sc mine quantainium
+        """
+        async with ctx.typing():
+            current_time = __import__('time').time()
+            if not getattr(self, "mine_cache", None) or (current_time - getattr(self, "mine_cache_time", 0) > self.cache_duration):
+                try:
+                    # 1. Fetch latest version string
+                    vers_url = "https://scmdb.net/data/game-versions.json"
+                    async with self.session.get(vers_url) as resp:
+                        if resp.status == 200:
+                            v_data = await resp.json()
+                            vers = v_data[0]['version']
+                        else:
+                            return await ctx.send(f"Failed to fetch SCMDB version index (HTTP {resp.status}).")
+                    
+                    # 2. Fetch the matched json
+                    mine_url = f"https://scmdb.net/data/mining_data-{vers}.json"
+                    async with self.session.get(mine_url) as resp:
+                        if resp.status == 200:
+                            self.mine_cache = await resp.json()
+                            self.mine_cache_time = current_time
+                        else:
+                            return await ctx.send(f"Failed to fetch SCMDB mining DB (HTTP {resp.status}).")
+                except Exception as e:
+                    return await ctx.send(f"Error reaching SCMDB API: {e}")
+            
+            data = getattr(self, "mine_cache", {})
+            elements = data.get("mineableElements", {})
+            query = item_name.lower()
+            matches = []
+            
+            for k, v in elements.items():
+                name = v.get("name", "").lower()
+                if query in name:
+                    matches.append((k, v))
+            
+            if not matches:
+                return await ctx.send(f"No minable element found matching '{item_name}'.")
+
+            # fuzzy resolve
+            matches.sort(key=lambda x: len(x[1].get("name", "")))
+            selected_guid, selected_elem = matches[0]
+            
+            if len(matches) > 1:
+                options = []
+                import discord
+                for m_id, m_elem in matches[:25]:
+                    label = m_elem.get('name', 'Unknown')
+                    desc = f"Rarity: {m_elem.get('rarity', 'Unknown').title()}"
+                    options.append(discord.SelectOption(label=label[:100], value=m_id, description=desc[:100]))
+                
+                class MineSelect(discord.ui.Select):
+                    def __init__(self, m_opts):
+                        super().__init__(placeholder="Multiple materials found... select one", options=m_opts)
+                    async def callback(self, interaction: discord.Interaction):
+                        self.view.selected_val = self.values[0]
+                        self.view.stop()
+                        
+                class MineView(discord.ui.View):
+                    def __init__(self, ctx, m_opts):
+                        super().__init__(timeout=60)
+                        self.ctx = ctx
+                        self.selected_val = None
+                        self.add_item(MineSelect(m_opts))
+                    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                        if interaction.user != self.ctx.author:
+                            await interaction.response.send_message("Only the command author can select.", ephemeral=True)
+                            return False
+                        return True
+                        
+                view = MineView(ctx, options)
+                prompt = discord.Embed(
+                    title=f"Multiple elements found for '{item_name}'",
+                    description="Please select the exact material below:",
+                    color=discord.Color.gold()
+                )
+                msg = await ctx.send(embed=prompt, view=view)
+                
+                if await view.wait():
+                    try: await msg.delete()
+                    except: pass
+                    return
+                else:
+                    selected_guid = view.selected_val
+                    selected_elem = elements.get(selected_guid, matches[0][1])
+                    try: await msg.delete()
+                    except: pass
+
+            name = selected_elem.get("name", "Unknown Element")
+            rarity = selected_elem.get("rarity", "Unknown").title()
+            instability = selected_elem.get("instability", 0.0)
+            resistance = selected_elem.get("resistance", 0.0)
+            cluster = selected_elem.get("clusterFactor", 0.0)
+            opt_window = selected_elem.get("optimalWindowMidpoint", 0.0)
+            sig = selected_elem.get("scanSignature", 0)
+            
+            # reverse compositions -> locations
+            comps = set()
+            for ck, cv in data.get("compositions", {}).items():
+                if any(p.get("elementGuid") == selected_guid for p in cv.get("parts", [])):
+                    comps.add(ck)
+            
+            sys_locs = {}
+            for loc in data.get("locations", []):
+                for g in loc.get("groups", []):
+                    for dep in g.get("deposits", []):
+                        if dep.get("compositionGuid") in comps:
+                            sys = loc.get("system", "Unknown")
+                            sys_locs.setdefault(sys, set()).add(loc.get("locationName", "Unknown"))
+                            
+            embed = __import__('discord').Embed(
+                title=f"Mining: {name}",
+                color=__import__('discord').Color.orange(),
+                url="https://scmdb.net/?page=mine"
+            )
+            embed.set_author(name="SCMDB", url="https://scmdb.net/", icon_url="https://scmdb.net/favicon.svg")
+            
+            embed.add_field(name="Rarity", value=rarity, inline=True)
+            embed.add_field(name="Instability", value=f"{instability:,.2f}", inline=True)
+            embed.add_field(name="Resistance", value=f"{resistance:,.2f}", inline=True)
+            embed.add_field(name="Opt Window", value=f"{opt_window:,.2f}", inline=True)
+            embed.add_field(name="Cluster Factor", value=f"{cluster:,.2f}", inline=True)
+            embed.add_field(name="Base Signature", value=f"{sig:,}", inline=True)
+            
+            if sys_locs:
+                loc_str = ""
+                for s, l_set in sys_locs.items():
+                    sorted_locs = sorted(list(l_set))
+                    if len(sorted_locs) > 10:
+                        loc_chunk = ", ".join(sorted_locs[:10]) + f" (+{len(sorted_locs)-10} more)"
+                    else:
+                        loc_chunk = ", ".join( sorted_locs)
+                    loc_str += f"**{s}**: {loc_chunk}\n"
+                    
+                embed.add_field(name="Known Locations", value=loc_str[:1024], inline=False)
+            else:
+                embed.add_field(name="Known Locations", value="No location data mapped natively.", inline=False)
+                
+            embed.set_footer(text="Data sourced from SCMDB.net")
+            
+            await ctx.send(embed=embed)
+
     @sc_base.command(name="status")
     async def sc_status(self, ctx):
         """Check the current status of the Persistent Universe by scraping the RSI Status Page."""
