@@ -1388,7 +1388,7 @@ class SCDroid(commands.Cog):
                     q = int(match_part.get("qualityScale", 0) * 1000)
                     min_q = match_part.get("minPercent", 0)
                     max_q = match_part.get("maxPercent", 0)
-                    comps_info[ck] = {"q": q, "min": min_q * 100, "max": max_q * 100}
+                    comps_info[ck] = {"q": q, "min": min_q, "max": max_q}
 
             # 2. Map locations with best quality
             # We want to keep sites with QUALITY >= 500
