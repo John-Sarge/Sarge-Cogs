@@ -882,7 +882,7 @@ class SCDroid(commands.Cog):
         selected_ship = None
         
         if len(matches) > 1:
-            view = ShipSelectView(matches, ctx.author, ctx=ctx)
+            view = ShipSelectView(matches, ctx.author)
             msg = await ctx.send("Multiple ships found. Please select one:", view=view)
             view.message = msg
             
@@ -1445,7 +1445,7 @@ class SCDroid(commands.Cog):
                 pages.append(embed)
             
             if len(pages) > 1:
-                view = FleetPaginationView(pages, ctx.author, ctx=ctx, timeout=60)
+                view = FleetPaginationView(pages, ctx.author, timeout=60)
                 message = await ctx.send(embed=pages[0], view=view)
                 view.message = message
             else:
@@ -1569,13 +1569,12 @@ class SCDroid(commands.Cog):
             matches.sort(key=lambda x: (x.get("name", "").lower() != query.lower(), len(x.get("name", ""))))
             
             if len(matches) > 1:
-                view = ShipSelectView(matches, ctx.author, ctx=ctx)
+                view = ShipSelectView(matches, ctx.author)
                 msg = await ctx.send(f"Multiple ships found for '**{query}**'. Please select one:", view=view)
                 view.message = msg
                 
                 if await view.wait():
-                    msg2 = await ctx.send("Selection timed out.")
-                    await msg2.delete(delay=60)
+                    await ctx.send("Selection timed out.")
                     return None
                 
                 selected_slug = view.selected_ship
@@ -1697,7 +1696,7 @@ class SCDroid(commands.Cog):
                     
                     is_exact_match = title.lower() == query.lower()
                     if not is_exact_match and len(results) > 1:
-                        view = WikiSelectView(results[:10], ctx.author, ctx=ctx)
+                        view = WikiSelectView(results[:10], ctx.author)
                         
                         prompt_bed = discord.Embed(
                             title=f"Multiple results found for '{query}'",
@@ -1806,7 +1805,7 @@ class SCDroid(commands.Cog):
                             desc = f"Type: {m.get('kind', 'Unknown')}"
                             options.append(discord.SelectOption(label=label, value=val, description=desc))
                             
-                        view = CommoditySelectView(options, ctx.author, ctx=ctx)
+                        view = CommoditySelectView(options, ctx.author)
                         
                         prompt = discord.Embed(
                             title=f"Multiple commodities found for '{commodity}'",
@@ -2069,7 +2068,7 @@ class SCDroid(commands.Cog):
                             self._update_buttons()
                             await interaction.response.edit_message(embed=self.items[self.current_page], view=self)
                     
-                    view = PaginationView(embeds, ctx=ctx)
+                    view = PaginationView(embeds)
                     msg = await ctx.send(embed=embeds[0], view=view)
                     view.message = msg
 
