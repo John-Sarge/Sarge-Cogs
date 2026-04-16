@@ -1916,9 +1916,29 @@ class SCDroid(commands.Cog):
             color=discord.Color.magenta()
         )
         
+        def get_ship_field(ship, field):
+            if field == "price":
+                return ship.get("price") or ship.get("pledgePrice")
+            elif field == "scmSpeed":
+                speeds = ship.get("speeds") or {}
+                return speeds.get("scmSpeed") or ship.get("scmSpeed")
+            elif field == "maxCrew":
+                crew = ship.get("crew") or {}
+                return crew.get("max") or ship.get("maxCrew")
+            elif field == "cargo":
+                metrics = ship.get("metrics") or {}
+                return metrics.get("cargo") or ship.get("cargo")
+            elif field == "length":
+                metrics = ship.get("metrics") or {}
+                return metrics.get("length") or ship.get("length")
+            elif field == "mass":
+                metrics = ship.get("metrics") or {}
+                return metrics.get("mass") or ship.get("mass")
+            return ship.get(field)
+
         def compare_val(field, label, suffix="", reverse=False):
-            v1 = ship1.get(field)
-            v2 = ship2.get(field)
+            v1 = get_ship_field(ship1, field)
+            v2 = get_ship_field(ship2, field)
             
             val1_str = "N/A"
             val2_str = "N/A"
