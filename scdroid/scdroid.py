@@ -904,14 +904,18 @@ class SCDroid(commands.Cog):
             color=discord.Color.dark_red()
         )
         
+        def valid_url(url_val):
+            return url_val and isinstance(url_val, str) and url_val.startswith("http")
+
         media = selected_ship.get("media", {})
-        if media.get("storeImage"):
+        
+        if valid_url(media.get("storeImage")):
             embed.set_image(url=media["storeImage"])
-        elif media.get("fleetchartImage"):
+        elif valid_url(media.get("fleetchartImage")):
             embed.set_image(url=media["fleetchartImage"])
-        elif selected_ship.get("storeImage"):
+        elif valid_url(selected_ship.get("storeImage")):
             embed.set_image(url=selected_ship["storeImage"])
-        elif selected_ship.get("image"):
+        elif valid_url(selected_ship.get("image")):
             embed.set_image(url=selected_ship["image"])
             
         manufacturer = selected_ship.get("manufacturer", {}).get("name", "Unknown")
