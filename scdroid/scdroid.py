@@ -931,7 +931,7 @@ class SCDroid(commands.Cog):
                 
             return val
 
-        # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> frontView -> image
+        # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> frontView -> base image
         image_url = extract_url(media.get("storeImage"))
         if not valid_url(image_url):
             image_url = extract_url(media.get("fleetchartImage"))
@@ -941,14 +941,14 @@ class SCDroid(commands.Cog):
             image_url = extract_url(media.get("sideView"))
         if not valid_url(image_url):
             image_url = extract_url(media.get("frontView"))
+        if not valid_url(image_url):
+            image_url = extract_url(selected_ship.get("storeImage"))
+        if not valid_url(image_url):
+            image_url = extract_url(selected_ship.get("image"))
             
         if valid_url(image_url):
             embed.set_image(url=image_url)
-            embed.set_footer(text=f"DEBUG URL: {str(image_url)[:80]}...")
-        elif valid_url(extract_url(selected_ship.get("storeImage"))):
-            embed.set_image(url=extract_url(selected_ship.get("storeImage")))
-        elif valid_url(extract_url(selected_ship.get("image"))):
-            embed.set_image(url=extract_url(selected_ship.get("image")))
+            embed.set_footer(text=f"DEBUG URL: {str(image_url)}")
         else:
             embed.set_footer(text="DEBUG: No valid image URL found in cache. Try running .sc updatecache")
             
