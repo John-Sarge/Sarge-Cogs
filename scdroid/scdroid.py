@@ -957,19 +957,41 @@ class SCDroid(commands.Cog):
         embed.add_field(name="Class", value=selected_ship.get("classification", "N/A").title(), inline=True)
         
         stats = []
-        if selected_ship.get("price"): 
-            price = selected_ship['price']
+        
+        # Helper to get nested safely
+        price = selected_ship.get("price") or selected_ship.get("pledgePrice")
+        if price:
             try:
-                price = float(price)
-                stats.append(f"Price: {price:,.0f} UEC")
+                price_f = float(price)
+                stats.append(f"Price: {price_f:,.0f} UEC")
             except:
                 stats.append(f"Price: {price} UEC")
                 
-        if selected_ship.get("maxCrew"): stats.append(f"Max Crew: {selected_ship['maxCrew']}")
-        if selected_ship.get("cargo"): stats.append(f"Cargo: {selected_ship['cargo']} SCU")
-        if selected_ship.get("scmSpeed"): stats.append(f"SCM Speed: {selected_ship['scmSpeed']} m/s")
-        if selected_ship.get("afterburnerSpeed"): stats.append(f"Max Speed: {selected_ship['afterburnerSpeed']} m/s")
-        
+        crew = selected_ship.get("crew", {})
+        if crew and crew.get("max"):
+            stats.append(f"Max Crew: {crew['max']}")
+        elif selected_ship.get("maxCrew"):
+            stats.append(f"Max Crew: {selected_ship['maxCrew']}")
+            
+        metrics = selected_ship.get("metrics", {})
+        if metrics and metrics.get("cargo"):
+            stats.append(f"Cargo: {metrics['cargo']} SCU")
+        elif selected_ship.get("cargo"):
+            stats.append(f"Cargo: {selected_ship['cargo']} SCU")
+            
+        speeds = selected_ship.get("speeds", {})
+        if speeds and speeds.get("scmSpeed"):
+            stats.append(f"SCM Speed: {speeds['scmSpeed']} m/s")
+        elif selected_ship.get("scmSpeed"):
+            stats.append(f"SCM Speed: {selected_ship['scmSpeed']} m/s")
+            
+        if speeds and speeds.get("scmSpeedBoosted"):
+            stats.append(f"Max Speed: {speeds['scmSpeedBoosted']} m/s")
+        elif speeds and speeds.get("afterburnerSpeed"):
+            stats.append(f"Max Speed: {speeds['afterburnerSpeed']} m/s")
+        elif selected_ship.get("afterburnerSpeed"):
+            stats.append(f"Max Speed: {selected_ship['afterburnerSpeed']} m/s")
+
         embed.add_field(name="Specifications", value="\n".join(stats) or "No stats available", inline=False)
         embed.add_field(name="Status", value=selected_ship.get("productionStatus", "Unknown").title(), inline=True)
         
