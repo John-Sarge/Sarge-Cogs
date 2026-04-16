@@ -955,10 +955,14 @@ class SCDroid(commands.Cog):
                         if data.get("success") == 1:
                             org = data["data"]
                             
+                            headline = org.get("headline", "")
+                            headline_text = str(headline).strip() if not isinstance(headline, dict) else headline.get("plaintext", "").strip()
+                            description_val = headline_text if headline_text else None
+                            
                             embed = discord.Embed(
                                 title=f"{org.get('name')} [{org.get('sid')}]",
                                 url=org.get("url", ""),
-                                description=org.get("headline", ""),
+                                description=description_val,
                                 color=discord.Color.blurple()
                             )
                             
