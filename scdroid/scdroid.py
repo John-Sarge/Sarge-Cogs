@@ -654,6 +654,15 @@ class SCDroid(commands.Cog):
         await self.config.sc_api_key.set(key)
         await ctx.send("Star Citizen API key has been successfully configured.")
 
+    @sc_base.command(name="updatecache")
+    @commands.is_owner()
+    async def sc_updatecache(self, ctx):
+        """Force refresh the local ship cache from FleetYards (Bot Owner Only)."""
+        msg = await ctx.send("Fetching new, updated ship data from FleetYards (this may take 1-2 minutes)....")
+        async with ctx.typing():
+            await self.update_ship_cache()
+            await msg.edit(content=f"Ship cache successfully updated! Loaded {len(self.ship_cache)} ships.")
+
     @sc_base.command(name="user")
     async def sc_user(self, ctx, handle: str):
         """Retrieve a Star Citizen user profile."""
