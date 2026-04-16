@@ -718,7 +718,7 @@ class SCDroid(commands.Cog):
         status = selected_ship.get("productionStatus", "Unknown").title()
         
         stats = []
-        if selected_ship.get("price"): stats.append(f"Price: {selected_ship['price']} UEC")
+        if selected_ship.get("price"): stats.append(f"Price: ${selected_ship['price']}")
         if selected_ship.get("maxCrew"): stats.append(f"Max Crew: {selected_ship['maxCrew']}")
         if selected_ship.get("cargo"): stats.append(f"Cargo: {selected_ship['cargo']} SCU")
         if selected_ship.get("scmSpeed"): stats.append(f"SCM Speed: {selected_ship['scmSpeed']} m/s")
@@ -954,7 +954,7 @@ class SCDroid(commands.Cog):
             f"**{s1.get('name')} vs {s2.get('name')}**",
             f"{'Stat':<20} {'Ship 1':<20} {'Ship 2'}",
             f"{'Manufacturer':<20} {(s1.get('manufacturer',{}).get('name','?')):<20} {s2.get('manufacturer',{}).get('name','?')}",
-            f"{'Price':<20} {stat(s1,'price',' UEC'):<20} {stat(s2,'price',' UEC')}",
+            f"{'Price':<20} ${s1.get('price') or 'N/A':<19} ${s2.get('price') or 'N/A'}",
             f"{'Max Crew':<20} {stat(s1,'maxCrew'):<20} {stat(s2,'maxCrew')}",
             f"{'Cargo':<20} {stat(s1,'cargo',' SCU'):<20} {stat(s2,'cargo',' SCU')}",
             f"{'SCM Speed':<20} {stat(s1,'scmSpeed',' m/s'):<20} {stat(s2,'scmSpeed',' m/s')}",
@@ -1277,9 +1277,9 @@ class SCDroid(commands.Cog):
         if price:
             try:
                 price_f = float(price)
-                stats.append(f"Price: {price_f:,.0f} UEC")
+                stats.append(f"Price: ${price_f:,.0f}")
             except:
-                stats.append(f"Price: {price} UEC")
+                stats.append(f"Price: ${price}")
                 
         crew = selected_ship.get("crew", {})
         if crew and crew.get("max"):
@@ -1936,7 +1936,7 @@ class SCDroid(commands.Cog):
                 return metrics.get("mass") or ship.get("mass")
             return ship.get(field)
 
-        def compare_val(field, label, suffix="", reverse=False):
+        def compare_val(field, label, suffix="", prefix="", reverse=False):
             v1 = get_ship_field(ship1, field)
             v2 = get_ship_field(ship2, field)
             
@@ -1980,15 +1980,17 @@ class SCDroid(commands.Cog):
                     else:
                         val2_str = f"**{val2_str}** 🔼"
 
-            embed.add_field(name=f"{label} (1)", value=f"{val1_str}{suffix}", inline=True)
-            embed.add_field(name=f"{label} (2)", value=f"{val2_str}{suffix}", inline=True)
+            p1 = prefix if val1_str != "N/A" else ""
+            p2 = prefix if val2_str != "N/A" else ""
+            embed.add_field(name=f"{label} (1)", value=f"{p1}{val1_str}{suffix}", inline=True)
+            embed.add_field(name=f"{label} (2)", value=f"{p2}{val2_str}{suffix}", inline=True)
             embed.add_field(name="\u200b", value="\u200b", inline=True)
 
         embed.add_field(name="Ship 1", value=ship1['name'], inline=True)
         embed.add_field(name="Ship 2", value=ship2['name'], inline=True)
         embed.add_field(name="\u200b", value="\u200b", inline=True)
 
-        compare_val("price", "Price", " UEC", reverse=True) # Lower price is better
+        compare_val("price", "Price", prefix="$", reverse=True) # Lower price is better
         compare_val("scmSpeed", "SCM Speed", " m/s")
         compare_val("maxCrew", "Max Crew", reverse=True)
         compare_val("cargo", "Cargo", " SCU")
