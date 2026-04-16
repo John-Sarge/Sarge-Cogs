@@ -909,23 +909,26 @@ class SCDroid(commands.Cog):
 
         media = selected_ship.get("media", {})
         
-        # Check media.storeImage (could be a dict or string)
-        store_img = media.get("storeImage")
-        if isinstance(store_img, dict):
-            store_img = store_img.get("largeUrl") or store_img.get("url")
-            
-        if valid_url(store_img):
-            embed.set_image(url=store_img)
-        elif valid_url(media.get("fleetchartImage")):
-            embed.set_image(url=media["fleetchartImage"])
-        elif isinstance(selected_ship.get("storeImage"), dict) and valid_url(selected_ship.get("storeImage", {}).get("url")):
-            embed.set_image(url=selected_ship["storeImage"]["url"])
-        elif valid_url(selected_ship.get("storeImage")):
-            embed.set_image(url=selected_ship["storeImage"])
-        elif isinstance(selected_ship.get("image"), dict) and valid_url(selected_ship.get("image", {}).get("url")):
-            embed.set_image(url=selected_ship["image"]["url"])
-        elif valid_url(selected_ship.get("image")):
-            embed.set_image(url=selected_ship["image"])
+        def extract_url(media_val):
+            if isinstance(media_val, dict):
+                return media_val.get("largeUrl") or media_val.get("url")
+            return media_val
+
+        # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> image
+        image_url = extract_url(media.get("storeImage"))
+        if not valid_url(image_url):
+            image_url = extract_url(media.get("fleetchartImage"))
+        if not valid_url(image_url):
+            image_url = extract_url(media.get("angledView"))
+        if not valid_url(image_url):
+            image_url = extract_url(media.get("sideView"))
+        
+        if valid_url(image_url):
+            embed.set_image(url=image_url)
+        elif valid_url(extract_url(selected_ship.get("storeImage"))):
+            embed.set_image(url=extract_url(selected_ship.get("storeImage")))
+        elif valid_url(extract_url(selected_ship.get("image"))):
+            embed.set_image(url=extract_url(selected_ship.get("image")))
             
         manufacturer = selected_ship.get("manufacturer", {}).get("name", "Unknown")
         embed.add_field(name="Manufacturer", value=manufacturer, inline=True)
