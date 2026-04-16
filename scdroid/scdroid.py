@@ -944,10 +944,13 @@ class SCDroid(commands.Cog):
             
         if valid_url(image_url):
             embed.set_image(url=image_url)
+            embed.set_footer(text=f"DEBUG URL: {str(image_url)[:80]}...")
         elif valid_url(extract_url(selected_ship.get("storeImage"))):
             embed.set_image(url=extract_url(selected_ship.get("storeImage")))
         elif valid_url(extract_url(selected_ship.get("image"))):
             embed.set_image(url=extract_url(selected_ship.get("image")))
+        else:
+            embed.set_footer(text="DEBUG: No valid image URL found in cache. Try running .sc updatecache")
             
         manufacturer = selected_ship.get("manufacturer", {}).get("name", "Unknown")
         embed.add_field(name="Manufacturer", value=manufacturer, inline=True)
