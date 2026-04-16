@@ -207,6 +207,8 @@ class SCDroid(commands.Cog):
         
         self.item_cache = []
         self.item_cache_time = 0
+        self.craft_cache = []
+        self.craft_cache_time = 0
         self.cache_duration = 86400
         self.ship_cache = []
         self.ship_cache_path = os.path.join(os.path.dirname(__file__), "ship_cache.json")
@@ -1145,6 +1147,136 @@ class SCDroid(commands.Cog):
             await ctx.send(f"Removed **{ship_name}** from your fleet.")
         else:
             await ctx.send(f"Could not find a ship named '{ship_name}' in your fleet.")
+
+
+    @sc_base.command(name="craft")
+    async def sc_craft(self, ctx, *, item_name: str):
+        """Search for crafting blueprints via SCCrafter.
+        
+        Example: [p]sc craft FS-9
+        """
+        async with ctx.typing():
+            current_time = __import__('time').time()
+            if not self.craft_cache or (current_time - self.craft_cache_time > self.cache_duration):
+                url = "https://sccrafter.com/Blueprints.json"
+                try:
+                    async with self.session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            self.craft_cache = data.get('blueprints', [])
+                            self.craft_cache_time = current_time
+                        else:
+                            return await ctx.send(f"Failed to fetch blueprints (HTTP {resp.status}).")
+                except Exception as e:
+                    return await ctx.send(f"Error reaching SCCrafter API: {e}")
+            
+            blueprints = self.craft_cache
+            query = item_name.lower()
+            matches = []
+            
+            for bp in blueprints:
+                name = bp.get("blueprintName", "").lower()
+                int_name = bp.get("internalName", "").lower()
+                if query in name or query in int_name:
+                    matches.append(bp)
+            
+            if not matches:
+                return await ctx.send(f"No crafting blueprint found for '{item_name}'.")
+                
+            # Filter matches by exactish match if many
+            matches.sort(key=lambda x: len(x.get("blueprintName", "")))
+            selected_bp = matches[0]
+            
+            if len(matches) > 1:
+                options = []
+                import discord
+                for m in matches[:25]:
+                    label = m.get('blueprintName', 'Unknown')
+                    desc = f"Category: {m.get('categoryName', 'Unknown')}"
+                    val = m.get('internalName', str(len(options)))
+                    options.append(discord.SelectOption(label=label[:100], value=val, description=desc[:100]))
+                
+                class BpSelect(discord.ui.Select):
+                    def __init__(self, bp_options):
+                        super().__init__(placeholder="Multiple blueprints found matters... select one", options=bp_options)
+                    async def callback(self, interaction: discord.Interaction):
+                        self.view.selected_val = self.values[0]
+                        self.view.stop()
+                        
+                class BpView(discord.ui.View):
+                    def __init__(self, ctx, bp_options):
+                        super().__init__(timeout=60)
+                        self.ctx = ctx
+                        self.selected_val = None
+                        self.add_item(BpSelect(bp_options))
+                    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                        if interaction.user != self.ctx.author:
+                            await interaction.response.send_message("Only the command author can select.", ephemeral=True)
+                            return False
+                        return True
+                        
+                view = BpView(ctx, options)
+                prompt = discord.Embed(
+                    title=f"Multiple blueprints found for '{item_name}'",
+                    description="Please select the exact item below:",
+                    color=discord.Color.gold()
+                )
+                msg = await ctx.send(embed=prompt, view=view)
+                
+                if await view.wait():
+                    try: await msg.delete()
+                    except: pass
+                    return
+                else:
+                    val = view.selected_val
+                    selected_bp = next((m for m in matches if m.get("internalName", "") == val or m.get("blueprintName", "") == val), matches[0])
+                    try: await msg.delete()
+                    except: pass
+            
+            name = selected_bp.get("blueprintName", "Unknown Blueprint")
+            cat = selected_bp.get("categoryName", "N/A")
+            craft_time = selected_bp.get("craftTime", {})
+            time_str = f"{craft_time.get('days', 0)}d {craft_time.get('hours', 0)}h {craft_time.get('minutes', 0)}m {craft_time.get('seconds', 0)}s"
+            is_reward = selected_bp.get("isReward", False)
+            
+            embed = __import__('discord').Embed(
+                title=f"Crafting: {name}",
+                color=__import__('discord').Color.green(),
+                url="https://sccrafter.com/"
+            )
+            embed.set_author(name="SCCrafter", url="https://sccrafter.com/", icon_url="https://sccrafter.com/CrafterFavicon.png")
+            embed.add_field(name="Category", value=cat, inline=True)
+            embed.add_field(name="Base Time", value=time_str, inline=True)
+            
+            if is_reward:
+                missions = selected_bp.get("rewardMissions", [])
+                if missions:
+                    m_list = [m.get("mission", "Unknown") for m in missions[:3]]
+                    val = "\n".join(f"- {m}" for m in m_list)
+                    if len(missions) > 3: val += f"\n*(+ {len(missions)-3} more)*"
+                    embed.add_field(name="Source (Mission Reward)", value=val, inline=False)
+            
+            slots = selected_bp.get("slots", [])
+            req_str = ""
+            for slot in slots:
+                count = slot.get("requiredCount", 1)
+                for opt in slot.get("options", []):
+                    if opt.get("type", "") == "resource":
+                        res = opt.get("resourceName", "Unknown Resource")
+                        scu = opt.get("standardCargoUnits", 0) * count
+                        req_str += f"- **{count}x** {res} ({scu:.2f} SCU)\n"
+                    elif opt.get("type", "") == "item":
+                        res = opt.get("entityName", "Unknown Item")
+                        req_str += f"- **{count}x** {res}\n"
+            
+            if req_str:
+                embed.add_field(name="Materials Needed", value=req_str, inline=False)
+            else:
+                embed.add_field(name="Materials Needed", value="No known materials.", inline=False)
+                
+            embed.set_footer(text="Powered by sccrafter.com")
+            
+            await ctx.send(embed=embed)
 
     @sc_base.command(name="status")
     async def sc_status(self, ctx):
