@@ -921,12 +921,23 @@ class SCDroid(commands.Cog):
         def extract_url(media_val):
             val = None
             if isinstance(media_val, dict):
-                val = media_val.get("largeUrl") or media_val.get("url")
+                val = media_val.get("url") or media_val.get("largeUrl")
             else:
                 val = media_val
                 
-            if val and isinstance(val, str) and val.endswith('/'):
-                val = val[:-1]
+            if val and isinstance(val, str):
+                if val.endswith('/'):
+                    val = val[:-1]
+                # Discord embeds reject raw '=' and '-' characters in path segments.
+                import urllib.parse
+                parsed = urllib.parse.urlsplit(val)
+                val = urllib.parse.urlunsplit((
+                    parsed.scheme,
+                    parsed.netloc,
+                    urllib.parse.quote(parsed.path, safe='/'),
+                    parsed.query,
+                    parsed.fragment
+                ))
             return val
 
         # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> image
