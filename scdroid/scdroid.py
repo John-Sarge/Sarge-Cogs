@@ -1017,6 +1017,16 @@ class SCDroid(commands.Cog):
                             embed.add_field(name="Handle", value=profile.get("handle", "N/A"))
                             embed.add_field(name="Enlisted", value=profile.get("enlisted", "N/A")[:10])
                             
+                            uee_record = profile.get("id", None)
+                            if uee_record:
+                                embed.add_field(name="UEE Citizen Record", value=f"#{uee_record}", inline=True)
+                            
+                            bio = profile.get("bio", "").strip()
+                            if bio:
+                                if len(bio) > 1024:
+                                    bio = bio[:1021] + "..."
+                                embed.add_field(name="Bio", value=bio, inline=False)
+                            
                             if org:
                                 embed.add_field(name="Organization", value=f"{org.get('name')} ({org.get('sid')})", inline=False)
                             
