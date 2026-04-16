@@ -904,7 +904,12 @@ class SCDroid(commands.Cog):
             color=discord.Color.dark_red()
         )
         
-        if selected_ship.get("storeImage"):
+        media = selected_ship.get("media", {})
+        if media.get("storeImage"):
+            embed.set_image(url=media["storeImage"])
+        elif media.get("fleetchartImage"):
+            embed.set_image(url=media["fleetchartImage"])
+        elif selected_ship.get("storeImage"):
             embed.set_image(url=selected_ship["storeImage"])
         elif selected_ship.get("image"):
             embed.set_image(url=selected_ship["image"])
