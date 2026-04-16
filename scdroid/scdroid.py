@@ -241,10 +241,12 @@ class SCDroid(commands.Cog):
                             
                         data = await response.json()
                         
-                        if not data or not isinstance(data, list) or len(data) == 0:
+                        items = data if isinstance(data, list) else data.get("items", [])
+                        
+                        if not items or len(items) == 0:
                             break
                             
-                        all_ships.extend(data)
+                        all_ships.extend(items)
                         page += 1
                         
                         await asyncio.sleep(0.5)
