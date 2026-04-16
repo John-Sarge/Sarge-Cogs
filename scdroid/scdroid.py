@@ -1019,7 +1019,7 @@ class SCDroid(commands.Cog):
                             
                             uee_record = profile.get("id", None)
                             if uee_record:
-                                embed.add_field(name="UEE Citizen Record", value=f"#{uee_record}", inline=True)
+                                embed.add_field(name="UEE Citizen Record", value=str(uee_record), inline=True)
                             
                             bio = profile.get("bio", "").strip()
                             if bio:
