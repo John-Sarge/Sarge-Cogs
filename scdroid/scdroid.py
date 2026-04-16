@@ -919,28 +919,19 @@ class SCDroid(commands.Cog):
         media = selected_ship.get("media", {})
         
         def extract_url(media_val):
-            val = None
+            if not media_val:
+                return None
             if isinstance(media_val, dict):
                 val = media_val.get("url") or media_val.get("largeUrl")
             else:
-                val = media_val
+                val = str(media_val)
                 
-            if val and isinstance(val, str):
-                if val.endswith('/'):
-                    val = val[:-1]
-                # Discord embeds reject raw '=' and '-' characters in path segments.
-                import urllib.parse
-                parsed = urllib.parse.urlsplit(val)
-                val = urllib.parse.urlunsplit((
-                    parsed.scheme,
-                    parsed.netloc,
-                    urllib.parse.quote(parsed.path, safe='/'),
-                    parsed.query,
-                    parsed.fragment
-                ))
+            if val and isinstance(val, str) and val.endswith('/'):
+                val = val[:-1]
+                
             return val
 
-        # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> image
+        # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> frontView -> image
         image_url = extract_url(media.get("storeImage"))
         if not valid_url(image_url):
             image_url = extract_url(media.get("fleetchartImage"))
@@ -948,7 +939,9 @@ class SCDroid(commands.Cog):
             image_url = extract_url(media.get("angledView"))
         if not valid_url(image_url):
             image_url = extract_url(media.get("sideView"))
-        
+        if not valid_url(image_url):
+            image_url = extract_url(media.get("frontView"))
+            
         if valid_url(image_url):
             embed.set_image(url=image_url)
         elif valid_url(extract_url(selected_ship.get("storeImage"))):
