@@ -910,9 +910,15 @@ class SCDroid(commands.Cog):
         media = selected_ship.get("media", {})
         
         def extract_url(media_val):
+            val = None
             if isinstance(media_val, dict):
-                return media_val.get("largeUrl") or media_val.get("url")
-            return media_val
+                val = media_val.get("largeUrl") or media_val.get("url")
+            else:
+                val = media_val
+                
+            if val and isinstance(val, str) and val.endswith('/'):
+                val = val[:-1]
+            return val
 
         # Prefer storeImage -> fleetchartImage -> angledView -> sideView -> image
         image_url = extract_url(media.get("storeImage"))
