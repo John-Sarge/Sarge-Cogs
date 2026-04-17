@@ -1004,31 +1004,34 @@ class SCDroid(commands.Cog):
                 async with self.session.get(url) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data.get("success") == 1:
-                            profile = data["data"]["profile"]
-                            org = data["data"].get("organization", {})
+                        raw_data = data.get("data") or {}
+                        if data.get("success") == 1 and raw_data.get("profile"):
+                            profile = raw_data["profile"]
+                            org = raw_data.get("organization") or {}
                             
+                            page_url = (profile.get("page") or {}).get("url", "")
                             embed = discord.Embed(
                                 title=profile.get("display", handle),
-                                url=profile.get("page", {}).get("url", ""),
+                                url=page_url,
                                 color=discord.Color.blue()
                             )
-                            embed.set_thumbnail(url=profile.get("image", ""))
+                            embed.set_thumbnail(url=profile.get("image") or "")
                             embed.add_field(name="Handle", value=profile.get("handle", "N/A"))
-                            embed.add_field(name="Enlisted", value=profile.get("enlisted", "N/A")[:10])
+                            enlisted = profile.get("enlisted") or "N/A"
+                            embed.add_field(name="Enlisted", value=enlisted[:10])
                             
                             uee_record = profile.get("id", None)
                             if uee_record:
                                 embed.add_field(name="UEE Citizen Record", value=str(uee_record), inline=True)
                             
-                            bio = profile.get("bio", "").strip()
+                            bio = (profile.get("bio") or "").strip()
                             if bio:
                                 if len(bio) > 1024:
                                     bio = bio[:1021] + "..."
                                 embed.add_field(name="Bio", value=bio, inline=False)
                             
-                            if org:
-                                embed.add_field(name="Organization", value=f"{org.get('name')} ({org.get('sid')})", inline=False)
+                            if org and org.get("name"):
+                                embed.add_field(name="Organization", value=f"{org.get('name')} ({org.get('sid', 'N/A')})", inline=False)
                             
                             await ctx.send(embed=embed)
                         else:
