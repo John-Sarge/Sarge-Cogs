@@ -737,7 +737,7 @@ class SCDroid(commands.Cog):
         if not api_key:
             return "Error: The SC API key has not been configured."
 
-        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/user/{handle}"
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/live/user/{handle}"
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
@@ -768,7 +768,7 @@ class SCDroid(commands.Cog):
         if not api_key:
             return "Error: The SC API key has not been configured."
 
-        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/organization/{symbol}"
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/live/organization/{symbol}"
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
@@ -997,7 +997,7 @@ class SCDroid(commands.Cog):
         if not api_key:
             return await ctx.send(f"The API key has not been set by the bot owner yet. Use `{ctx.clean_prefix}sc setkey`.")
             
-        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/user/{handle}"
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/live/user/{handle}"
         
         async with ctx.typing():
             try:
@@ -1338,7 +1338,7 @@ class SCDroid(commands.Cog):
         if not api_key:
             return await ctx.send("The API key has not been set by the bot owner yet. Use `[p]sc setkey`.")
             
-        url = f"https://api.starcitizen-api.com/{api_key}/v1/auto/organization/{symbol}"
+        url = f"https://api.starcitizen-api.com/{api_key}/v1/live/organization/{symbol}"
         
         async with ctx.typing():
             try:
