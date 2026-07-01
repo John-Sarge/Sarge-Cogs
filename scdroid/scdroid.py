@@ -752,6 +752,11 @@ class SCDroid(commands.Cog):
                         f"**{profile.get('display', handle)}** (@{profile.get('handle', handle)})\n"
                         f"Enlisted: {profile.get('enlisted', 'N/A')[:10]}\n"
                     )
+                    
+                    bio = (profile.get("bio") or "").strip()
+                    if bio:
+                        result += f"Bio: {bio}\n"
+                        
                     if org:
                         result += f"Organization: {org.get('name')} [{org.get('sid')}]"
                     return result
