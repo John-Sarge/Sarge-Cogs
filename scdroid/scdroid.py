@@ -787,12 +787,29 @@ class SCDroid(commands.Cog):
                     headline_text = str(headline).strip() if not isinstance(headline, dict) else headline.get("plaintext", "").strip()
                     focus = [org.get("primaryActivity"), org.get("secondaryActivity")]
                     focus = [f for f in focus if f]
-                    return (
+
+                    # Helper to safely extract plaintext from SC-API's rich text fields
+                    def get_text(field_data):
+                        if not field_data: return ""
+                        if isinstance(field_data, dict): return field_data.get("plaintext", "").strip()
+                        return str(field_data).strip()
+
+                    history = get_text(org.get("history"))
+                    manifesto = get_text(org.get("manifesto"))
+                    charter = get_text(org.get("charter"))
+
+                    result = (
                         f"**{org.get('name')} [{org.get('sid')}]**\n"
                         f"Archetype: {org.get('archetype', 'N/A')} | Members: {org.get('members', 'N/A')} | Language: {org.get('lang', 'N/A')}\n"
                         + (f"Focus: {', '.join(focus)}\n" if focus else "")
-                        + (f"Description: {headline_text}" if headline_text else "")
+                        + (f"Description: {headline_text}\n" if headline_text else "")
                     )
+
+                    if history: result += f"History: {history}\n"
+                    if manifesto: result += f"Manifesto: {manifesto}\n"
+                    if charter: result += f"Charter: {charter}\n"
+
+                    return result
         except Exception as e:
             return f"Error fetching org profile: {e}"
 
