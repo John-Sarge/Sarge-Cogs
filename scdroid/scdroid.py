@@ -768,7 +768,7 @@ class SCDroid(commands.Cog):
         symbol = kwargs.get("symbol", "")
         if not symbol:
             return "Error: Organization symbol not provided."
-
+        symbol = symbol.upper()
         api_key = await self.config.sc_api_key()
         if not api_key:
             return "Error: The SC API key has not been configured."
@@ -1356,6 +1356,7 @@ class SCDroid(commands.Cog):
     @sc_base.command(name="org")
     async def sc_org(self, ctx, symbol: str):
         """Retrieve a Star Citizen Organization profile."""
+        symbol = symbol.upper()
         api_key = await self.config.sc_api_key()
         if not api_key:
             return await ctx.send("The API key has not been set by the bot owner yet. Use `[p]sc setkey`.")
