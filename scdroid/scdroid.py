@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import time
 import asyncio
 import re
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from redbot.core import commands, Config
 from discord.ext import tasks
@@ -201,7 +202,9 @@ class SCDroid(commands.Cog):
         self.config.register_global(**default_global)
         
         default_user = {
-            "fleet": []
+            "fleet": [],
+            "uec_balance": 0,
+            "uec_transactions": []
         }
         self.config.register_user(**default_user)
         
@@ -1494,6 +1497,210 @@ class SCDroid(commands.Cog):
         else:
             await ctx.send(f"Could not find a ship named '{ship_name}' in your fleet.")
 
+
+    @sc_base.group(name="ledger", invoke_without_command=True)
+    async def sc_ledger(self, ctx):
+        """View your personal UEC ledger balance and recent transactions."""
+        balance = await self.config.user(ctx.author).uec_balance()
+        transactions = await self.config.user(ctx.author).uec_transactions()
+
+        embed = discord.Embed(
+            title=f"{ctx.author.display_name}'s UEC Ledger",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="Current Balance", value=f"{balance:,} aUEC", inline=False)
+
+        if transactions:
+            recent = list(reversed(transactions[-5:]))
+            tx_lines = []
+            for tx in recent:
+                sign = "+" if tx["amount"] >= 0 else ""
+                tx_lines.append(f"`{tx['date']}` {sign}{tx['amount']:,} aUEC — {tx.get('note', 'No note')}")
+            embed.add_field(name="Recent Transactions", value="\n".join(tx_lines), inline=False)
+        else:
+            embed.set_footer(text=f"Use `{ctx.clean_prefix}sc ledger add` or `{ctx.clean_prefix}sc ledger deduct` to track your UEC.")
+
+        await ctx.send(embed=embed)
+
+    @sc_ledger.command(name="add")
+    async def sc_ledger_add(self, ctx, amount: int, *, note: str = "No note"):
+        """Add UEC to your ledger.
+
+        Example: [p]sc ledger add 50000 Sold Quantainium
+        """
+        if amount <= 0:
+            return await ctx.send("Amount must be a positive number.")
+
+        async with self.config.user(ctx.author).all() as user_data:
+            user_data["uec_balance"] += amount
+            tx = {
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "amount": amount,
+                "note": note,
+                "balance_after": user_data["uec_balance"]
+            }
+            user_data["uec_transactions"].append(tx)
+            if len(user_data["uec_transactions"]) > 50:
+                user_data["uec_transactions"] = user_data["uec_transactions"][-50:]
+            new_balance = user_data["uec_balance"]
+
+        embed = discord.Embed(title="UEC Ledger — Deposit", color=discord.Color.green())
+        embed.add_field(name="Added", value=f"+{amount:,} aUEC", inline=True)
+        embed.add_field(name="New Balance", value=f"{new_balance:,} aUEC", inline=True)
+        if note != "No note":
+            embed.add_field(name="Note", value=note, inline=False)
+        await ctx.send(embed=embed)
+
+    @sc_ledger.command(name="deduct", aliases=["spend", "sub"])
+    async def sc_ledger_deduct(self, ctx, amount: int, *, note: str = "No note"):
+        """Deduct UEC from your ledger.
+
+        Example: [p]sc ledger deduct 12500 Bought Aurora MR
+        """
+        if amount <= 0:
+            return await ctx.send("Amount must be a positive number.")
+
+        async with self.config.user(ctx.author).all() as user_data:
+            user_data["uec_balance"] -= amount
+            tx = {
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "amount": -amount,
+                "note": note,
+                "balance_after": user_data["uec_balance"]
+            }
+            user_data["uec_transactions"].append(tx)
+            if len(user_data["uec_transactions"]) > 50:
+                user_data["uec_transactions"] = user_data["uec_transactions"][-50:]
+            new_balance = user_data["uec_balance"]
+
+        embed = discord.Embed(title="UEC Ledger — Deduction", color=discord.Color.red())
+        embed.add_field(name="Deducted", value=f"-{amount:,} aUEC", inline=True)
+        embed.add_field(name="New Balance", value=f"{new_balance:,} aUEC", inline=True)
+        if note != "No note":
+            embed.add_field(name="Note", value=note, inline=False)
+        await ctx.send(embed=embed)
+
+    @sc_ledger.command(name="set")
+    async def sc_ledger_set(self, ctx, amount: int):
+        """Set your UEC balance to a specific amount.
+
+        Example: [p]sc ledger set 1000000
+        """
+        async with self.config.user(ctx.author).all() as user_data:
+            old_balance = user_data["uec_balance"]
+            user_data["uec_balance"] = amount
+            tx = {
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "amount": amount - old_balance,
+                "note": f"Balance manually set to {amount:,}",
+                "balance_after": amount
+            }
+            user_data["uec_transactions"].append(tx)
+            if len(user_data["uec_transactions"]) > 50:
+                user_data["uec_transactions"] = user_data["uec_transactions"][-50:]
+
+        embed = discord.Embed(title="UEC Ledger — Balance Updated", color=discord.Color.blue())
+        embed.add_field(name="New Balance", value=f"{amount:,} aUEC", inline=False)
+        await ctx.send(embed=embed)
+
+    @sc_ledger.command(name="history")
+    async def sc_ledger_history(self, ctx):
+        """View your full UEC transaction history with pagination."""
+        transactions = await self.config.user(ctx.author).uec_transactions()
+        balance = await self.config.user(ctx.author).uec_balance()
+
+        if not transactions:
+            return await ctx.send(
+                f"No transactions recorded yet. Use `{ctx.clean_prefix}sc ledger add` or "
+                f"`{ctx.clean_prefix}sc ledger deduct` to get started."
+            )
+
+        chunk_size = 10
+        tx_reversed = list(reversed(transactions))
+        chunks = [tx_reversed[i:i + chunk_size] for i in range(0, len(tx_reversed), chunk_size)]
+
+        pages = []
+        for i, chunk in enumerate(chunks):
+            embed = discord.Embed(
+                title=f"{ctx.author.display_name}'s UEC History",
+                color=discord.Color.gold()
+            )
+            embed.add_field(name="Current Balance", value=f"{balance:,} aUEC", inline=False)
+
+            lines = []
+            for tx in chunk:
+                sign = "+" if tx["amount"] >= 0 else ""
+                lines.append(
+                    f"`{tx['date']}` **{sign}{tx['amount']:,}** → {tx['balance_after']:,} aUEC\n"
+                    f"  *{tx.get('note', 'No note')}*"
+                )
+
+            embed.add_field(name="Transactions", value="\n".join(lines), inline=False)
+            embed.set_footer(text=f"Page {i+1}/{len(chunks)} | {len(transactions)} total transactions")
+            pages.append(embed)
+
+        if len(pages) == 1:
+            await ctx.send(embed=pages[0])
+        else:
+            view = FleetPaginationView(pages, ctx.author, ctx=ctx, timeout=60)
+            message = await ctx.send(embed=pages[0], view=view)
+            view.message = message
+
+    @sc_ledger.command(name="reset")
+    async def sc_ledger_reset(self, ctx):
+        """Reset your UEC ledger to zero and clear all transaction history."""
+        balance = await self.config.user(ctx.author).uec_balance()
+
+        class ConfirmView(discord.ui.View):
+            def __init__(self_inner):
+                super().__init__(timeout=30)
+                self_inner.confirmed = None
+
+            async def interaction_check(self_inner, interaction: discord.Interaction) -> bool:
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message(
+                        "Only the command sender can confirm this.", ephemeral=True
+                    )
+                    return False
+                return True
+
+            @discord.ui.button(label="Confirm Reset", style=discord.ButtonStyle.danger)
+            async def confirm(self_inner, interaction: discord.Interaction, button: discord.ui.Button):
+                self_inner.confirmed = True
+                self_inner.stop()
+                await interaction.response.defer()
+
+            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+            async def cancel(self_inner, interaction: discord.Interaction, button: discord.ui.Button):
+                self_inner.confirmed = False
+                self_inner.stop()
+                await interaction.response.defer()
+
+        confirm_embed = discord.Embed(
+            title="Reset UEC Ledger",
+            description=(
+                f"Your current balance is **{balance:,} aUEC**.\n\n"
+                "Are you sure you want to reset your balance to **0** and clear all transaction history? "
+                "This cannot be undone."
+            ),
+            color=discord.Color.red()
+        )
+
+        view = ConfirmView()
+        msg = await ctx.send(embed=confirm_embed, view=view)
+        timed_out = await view.wait()
+
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
+        if timed_out or not view.confirmed:
+            return await ctx.send("Ledger reset cancelled.")
+
+        await self.config.user(ctx.author).uec_balance.set(0)
+        await self.config.user(ctx.author).uec_transactions.set([])
+        await ctx.send("Your UEC ledger has been reset to 0 and transaction history cleared.")
 
     @sc_base.command(name="craft")
     async def sc_craft(self, ctx, *, item_name: str):
